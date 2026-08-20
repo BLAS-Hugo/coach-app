@@ -1,7 +1,7 @@
 {
     "@@locale": "fr",
-    "counterAppBarTitle": "Compteur",
-    "@counterAppBarTitle": {
-        "description": "Text shown in the AppBar of the Counter Page"
+    "appTitle": "Coach App",
+    "@appTitle": {
+        "description": "Application name shown in the day view app bar"
     }
 }

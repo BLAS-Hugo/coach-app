@@ -2,14 +2,14 @@
 // ignore_for_file: prefer_const_constructors
 
 import 'package:coach_app/app/app.dart';
-import 'package:coach_app/counter/counter.dart';
+import 'package:coach_app/features/calendar/presentation/view/day_view_page.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('App', () {
-    testWidgets('renders CounterPage', (tester) async {
+    testWidgets('renders DayViewPage', (tester) async {
       await tester.pumpWidget(App());
-      expect(find.byType(CounterPage), findsOneWidget);
+      expect(find.byType(DayViewPage), findsOneWidget);
     });
   });
 }
