@@ -5,7 +5,6 @@
 **Platform:** Flutter — Android + iOS
 **Status:** V1 scope locked
 **Last updated:** 2026-08-18
-
 ---
 
 ## 1. Summary
