@@ -2,7 +2,8 @@ name: coach_app
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a run that may be mid-upload to Firebase App Distribution.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
@@ -11,16 +12,17 @@ on:
   pull_request:
     branches:
       - main
+  # Allows distributing the current main without pushing a commit.
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.47.x"
+  APK_PATH: build/app/outputs/flutter-apk/app-staging-release.apk
 
 jobs:
   semantic-pull-request:
+    if: github.event_name == 'pull_request'
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/semantic_pull_request.yml@v1
-
-  build:
-    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/flutter_package.yml@v1
-    with:
-      flutter_version: "3.44.x"
-      run_bloc_lint: true
 
   spell-check:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/spell_check.yml@v1
@@ -28,3 +30,123 @@ jobs:
       includes: |
         **/*.md
       modified_files_only: false
+
+  # The app is offline by design (PRD non-goals). Guard the direct dependency
+  # list only: pubspec.lock legitimately contains http/web_socket_channel as
+  # transitive test-infrastructure dependencies.
+  no-network-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reject network dependencies
+        run: |
+          deps=$(sed -n '/^dependencies:/,/^dev_dependencies:/p' pubspec.yaml)
+          if echo "$deps" | grep -nE '^  (http|dio|chopper|retrofit|graphql|firebase_|googleapis|supabase|amplify_|sentry|posthog|mixpanel)'; then
+            echo "::error::Network, analytics or crash-reporting dependency found. The app is offline by design (docs/PRD.md non-goals)."
+            exit 1
+          fi
+          echo "No network dependencies found."
+
+  analyze-and-test:
+    uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/flutter_package.yml@v1
+    with:
+      flutter_version: "3.47.x"
+      run_bloc_lint: true
+      # Runs after `flutter pub get`, before format/analyze/test. This is what
+      # makes drift/freezed/json_serializable codegen available to CI.
+      setup: |
+        flutter gen-l10n
+        dart run build_runner build --delete-conflicting-outputs
+      # Hold hand-written code at 100%; generated output and flavor
+      # entrypoints stay out of the denominator.
+      coverage_excludes: "lib/l10n/gen/** lib/main_*.dart lib/bootstrap.dart **/*.g.dart **/*.freezed.dart"
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode upload keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 is not set. See docs/CI.md."
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Codegen
+        run: |
+          flutter gen-l10n
+          dart run build_runner build --delete-conflicting-outputs
+
+      # build.gradle.kts reads these four env vars directly; no Gradle changes
+      # needed. --build-number keeps versionCode monotonic and unique per run.
+      - name: Build staging release APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PRIVATE_KEY_PASSWORD }}
+        run: |
+          flutter build apk \
+            --flavor staging \
+            --target lib/main_staging.dart \
+            --release \
+            --build-number=${{ github.run_number }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staging-apk
+          path: ${{ env.APK_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+  distribute:
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref == 'refs/heads/main'
+    needs: [analyze-and-test, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-apk
+          path: apk
+
+      - name: Write service account credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/service-account.json" >> "$GITHUB_ENV"
+
+      - name: Upload to Firebase App Distribution
+        env:
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+        run: |
+          npx --yes firebase-tools@15 appdistribution:distribute \
+            "apk/$(basename "$APK_PATH")" \
+            --app "$FIREBASE_ANDROID_APP_ID" \
+            --groups internal \
+            --release-notes "$(git log -1 --pretty=%s) (${GITHUB_SHA::7})"

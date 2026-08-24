@@ -16,6 +16,13 @@
   ],
   "useGitignore": true,
   "words": [
+    "ABIs",
+    "fastlane",
+    "gitignored",
+    "keystore",
+    "keytool",
+    "proguard",
+    "Temurin",
     "Contador",
     "localizable",
     "mostrado",
