@@ -309,3 +309,129 @@ extension SessionLogMapper on SessionLog {
     plannedSnapshot: plannedSnapshot,
   );
 }
+
+extension LoggedExerciseRowMapper on LoggedExerciseRow {
+  LoggedExercise toDomain() => LoggedExercise(
+    id: id,
+    sessionLogId: sessionLogId,
+    exerciseId: exerciseId,
+    orderIndex: orderIndex,
+    supersetGroup: supersetGroup,
+    skipped: skipped,
+    notes: notes,
+  );
+}
+
+extension LoggedExerciseMapper on LoggedExercise {
+  LoggedExerciseRow toRow(DateTime at) => LoggedExerciseRow(
+    id: id,
+    createdAt: at,
+    updatedAt: at,
+    sessionLogId: sessionLogId,
+    exerciseId: exerciseId,
+    orderIndex: orderIndex,
+    supersetGroup: supersetGroup,
+    skipped: skipped,
+    notes: notes,
+  );
+}
+
+extension LoggedSetRowMapper on LoggedSetRow {
+  LoggedSet toDomain() => LoggedSet(
+    id: id,
+    loggedExerciseId: loggedExerciseId,
+    orderIndex: orderIndex,
+    kind: kind,
+    plannedWeight: plannedWeight,
+    plannedReps: plannedReps,
+    plannedDurationSeconds: plannedDurationSeconds,
+    plannedIntensity: plannedIntensity,
+    actualWeight: actualWeight,
+    actualReps: actualReps,
+    actualDurationSeconds: actualDurationSeconds,
+    actualIntensity: actualIntensity,
+    completed: completed,
+  );
+}
+
+extension LoggedSetMapper on LoggedSet {
+  LoggedSetRow toRow(DateTime at) => LoggedSetRow(
+    id: id,
+    createdAt: at,
+    updatedAt: at,
+    loggedExerciseId: loggedExerciseId,
+    orderIndex: orderIndex,
+    kind: kind,
+    plannedWeight: plannedWeight,
+    plannedReps: plannedReps,
+    plannedDurationSeconds: plannedDurationSeconds,
+    plannedIntensity: plannedIntensity,
+    actualWeight: actualWeight,
+    actualReps: actualReps,
+    actualDurationSeconds: actualDurationSeconds,
+    actualIntensity: actualIntensity,
+    completed: completed,
+  );
+}
+
+extension LoggedBlockRowMapper on LoggedBlockRow {
+  LoggedBlock toDomain() => LoggedBlock(
+    id: id,
+    sessionLogId: sessionLogId,
+    orderIndex: orderIndex,
+    roundIndex: roundIndex,
+    role: role,
+    measure: measure,
+    targetValue: targetValue,
+    intensityLabel: intensityLabel,
+    actualDurationSeconds: actualDurationSeconds,
+    actualDistanceMeters: actualDistanceMeters,
+    completed: completed,
+  );
+}
+
+extension LoggedBlockMapper on LoggedBlock {
+  LoggedBlockRow toRow(DateTime at) => LoggedBlockRow(
+    id: id,
+    createdAt: at,
+    updatedAt: at,
+    sessionLogId: sessionLogId,
+    orderIndex: orderIndex,
+    roundIndex: roundIndex,
+    role: role,
+    measure: measure,
+    targetValue: targetValue,
+    intensityLabel: intensityLabel,
+    actualDurationSeconds: actualDurationSeconds,
+    actualDistanceMeters: actualDistanceMeters,
+    completed: completed,
+  );
+}
+
+extension AppSettingsRowMapper on AppSettingsRow {
+  AppSettings toDomain() => AppSettings(
+    id: id,
+    unitWeight: unitWeight,
+    unitDistance: unitDistance,
+    intensityScale: intensityScale,
+    defaultRestSeconds: defaultRestSeconds,
+    audioCues: audioCues,
+    vibration: vibration,
+    themeMode: themeMode,
+  );
+}
+
+extension AppSettingsMapper on AppSettings {
+  AppSettingsRow toRow(DateTime at) => AppSettingsRow(
+    id: id,
+    createdAt: at,
+    updatedAt: at,
+    unitWeight: unitWeight,
+    unitDistance: unitDistance,
+    intensityScale: intensityScale,
+    defaultRestSeconds: defaultRestSeconds,
+    audioCues: audioCues,
+    vibration: vibration,
+    themeMode: themeMode,
+  );
+}
