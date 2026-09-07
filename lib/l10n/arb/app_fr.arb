@@ -2,6 +2,30 @@
     "@@locale": "fr",
     "appTitle": "Coach App",
     "@appTitle": {
-        "description": "Application name shown in the day view app bar"
+        "description": "Application name, used as the Android/iOS task title"
+    },
+    "tabToday": "Aujourd'hui",
+    "@tabToday": {
+        "description": "Bottom tab bar: the day view, the app's home screen"
+    },
+    "tabProgram": "Programme",
+    "@tabProgram": {
+        "description": "Bottom tab bar: plan list and editor. Settings live here too"
+    },
+    "tabHistory": "Historique",
+    "@tabHistory": {
+        "description": "Bottom tab bar: per-week and per-exercise history"
+    },
+    "todayTitle": "Aujourd'hui",
+    "@todayTitle": {
+        "description": "Screen title of the day view"
+    },
+    "programTitle": "Programme",
+    "@programTitle": {
+        "description": "Screen title of the plan list"
+    },
+    "historyTitle": "Historique",
+    "@historyTitle": {
+        "description": "Screen title of the history screen"
     }
 }
