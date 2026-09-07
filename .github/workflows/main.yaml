@@ -9,9 +9,12 @@ on:
   push:
     branches:
       - main
+  # develop is the integration branch, so feature PRs land there first.
+  # Without it here, every feature PR merged with no checks at all.
   pull_request:
     branches:
       - main
+      - develop
   # Allows distributing the current main without pushing a commit.
   workflow_dispatch:
 
@@ -62,7 +65,12 @@ jobs:
       # entrypoints stay out of the denominator.
       coverage_excludes: "lib/l10n/gen/** lib/main_*.dart lib/bootstrap.dart **/*.g.dart **/*.freezed.dart"
 
+  # Only on the release path. A feature PR into develop gets the fast gates
+  # (analyze, test, lints, spell check); paying six minutes of Gradle and a
+  # keystore decode on every one of them buys nothing that merging into main
+  # would not catch.
   build-android:
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
