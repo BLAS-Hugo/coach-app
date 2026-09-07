@@ -4,7 +4,7 @@
 **Owner:** Hugo
 **Platform:** Flutter — Android + iOS
 **Status:** V1 scope locked
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-25
 ---
 
 ## 1. Summary
@@ -65,22 +65,33 @@ back at per-exercise progress.
 These terms are used consistently throughout this document and should map 1:1 to code
 identifiers.
 
-**Plan** — a training program with a type (`strength` or `endurance`), a start date, an
-optional end date, and a weekly template. Example: "Upper/Lower 4x — Autumn block".
+**Plan** — a named training program with a type (`strength` or `endurance`), holding an
+ordered sequence of *training blocks*. A plan carries no dates of its own; its blocks do.
+Example: "Upper/Lower 4x".
+
+**Training block** — one mesocycle within a plan: a name, a start date, a duration in
+weeks, and exactly one *weekly template* that repeats for that duration. Example: "Bloc 2
+— intensification, 5 semaines". A block may be stopped early, which fixes its end date at
+the last day of the current week. Blocks within a plan do not overlap.
+
+Note the deliberate collision of vocabulary: a *training block* is a multi-week segment of
+a plan, whereas an *endurance block* (below) is a segment of a single endurance session.
+The French UI calls both "bloc"; context separates them. Code never does — the identifiers
+are `TrainingBlock` and `EnduranceBlock`.
 
 **Weekly template** — for each weekday, zero or one *session template*. This is the
-repeating pattern of the plan.
+repeating pattern of a training block, not of the plan as a whole.
 
 **Session template** — a named workout belonging to a plan. For strength: an ordered list
 of exercise entries with planned sets. For endurance: an ordered list of interval blocks.
 
-**Week override** — a per-week deviation from the weekly template within a plan. Used for
-deloads and progression. An override can replace a weekday's session template, remove it,
-or adjust loads.
+**Week override** — a per-week deviation from the weekly template within a training block.
+Used for deloads and progression. An override can replace a weekday's session template,
+remove it, or adjust loads.
 
 **Session occurrence** — a concrete instance of a session template on a concrete date,
-derived from the plan's start date, weekly template, and any override for that week.
-Occurrences are computed, not stored, until they are started (§5.3).
+derived from the training block's start date, its weekly template, and any override for
+that week. Occurrences are computed, not stored, until they are started (§5.3).
 
 **Session log** — the persisted record created when the user starts an occurrence. Holds a
 frozen snapshot of what was planned plus everything actually performed.
@@ -91,8 +102,8 @@ plans. Example: "Développé couché".
 **Set** — one work set within a strength exercise entry. Has planned values and actual
 values.
 
-**Block** — one segment of an endurance session. Warmup, work interval, recovery, or
-cooldown.
+**Endurance block** — one segment of an endurance session. Warmup, work interval,
+recovery, or cooldown. Unrelated to a *training block*.
 
 ---
 
@@ -103,15 +114,23 @@ must be capable of expressing.
 
 ### 4.1 Plans
 
-- A plan has: name, type (`strength` | `endurance`), start date, optional end date, notes.
-- **A null end date means the plan is ongoing** and generates sessions indefinitely.
-- **At most one active plan per type at a time.** A strength plan and an endurance plan may
-  run concurrently, which is why a day can show two sessions.
-- Attempting to create or move a plan so that its date range overlaps an existing plan of
-  the same type is **blocked**, with a message prompting the user to set an end date on the
-  existing plan first.
-- Plans are **soft-deleted**. Deleting a plan hides it from the plan list but preserves all
-  session logs attached to it, and those logs remain visible in history.
+- A plan has: name, type (`strength` | `endurance`), notes. It has no dates.
+- A plan holds an ordered list of **training blocks**. A block has: name, start date,
+  duration in weeks, an optional explicit end date, notes.
+- **A block's end date is derived** from its start date and duration unless an explicit end
+  date is set, which is what "stop this block after this week" does. A block with neither a
+  duration nor an end date is ongoing and generates sessions indefinitely.
+- **Blocks within one plan may not overlap.** Attempting to create or move a block so that
+  its date range overlaps a sibling is blocked.
+- **At most one active plan per type at a time**, where a plan is active if any of its
+  blocks covers today. A strength plan and an endurance plan may run concurrently, which is
+  why a day can show two sessions.
+- Attempting to activate a plan whose blocks overlap those of another plan of the same type
+  is **blocked**, with a message prompting the user to stop the existing block first.
+- Plans and blocks are **soft-deleted**. Deleting either hides it from the plan list but
+  preserves all session logs attached to it, and those logs remain visible in history.
+- **A block that has started cannot be deleted**, only stopped — a hard delete would
+  destroy history. See §6.4.
 
 ### 4.2 Strength session templates
 
@@ -255,9 +274,10 @@ A plan editor reachable from a plans list.
 **Creating a plan:**
 
 1. Choose type — strength or endurance. Type is fixed after creation.
-2. Name, start date, optional end date.
-3. Build session templates.
-4. Assign session templates to weekdays in the weekly template.
+2. Name the plan.
+3. Create its first training block: name, start date, duration in weeks.
+4. Build session templates. Templates belong to the plan, so a later block can reuse them.
+5. Assign session templates to weekdays in that block's weekly template.
 
 **Building a strength session template:** add exercises via the inline autocomplete
 (§4.5), reorder by drag, add planned sets per exercise, set the measurement kind per
@@ -276,11 +296,11 @@ a count.
   the plan as it was, using the plan's own version history where necessary, or are simply
   shown as missed without detail. (Simplest acceptable behaviour: past unstarted
   occurrences render from the current template; this is a known, accepted imprecision.)
-- Setting an end date in the past ends the plan; occurrences after that date disappear from
-  the calendar. Existing logs remain.
+- Shortening a training block, or stopping it early, makes occurrences after its new end
+  date disappear from the calendar. Existing logs remain.
 
-**Week overrides:** from a plan's week view, the user can pick a specific week of the plan
-and, for that week only, swap a weekday's session, remove a session, or apply a load
+**Week overrides:** from a block's week view, the user can pick a specific week of that
+block and, for that week only, swap a weekday's session, remove a session, or apply a load
 adjustment (e.g. "−20 % on all working weights") for a deload.
 
 ### 5.5 Rest timer
@@ -349,11 +369,15 @@ Plans list → open plan → week view → select week 4 → "Modifier cette sem
 load adjustment or swap sessions → save → week 4's occurrences reflect the override; all
 other weeks unchanged.
 
-### 6.4 Ending a block and starting the next
+### 6.4 Ending a training block and starting the next
 
-Plans list → open current plan → set end date to last day of the block → save → create new
-plan with start date the day after → no overlap conflict → new plan's sessions appear from
-that date.
+Plans list → open current plan → "Arrêter le bloc après cette semaine" → the block's end
+date is fixed at the last day of the current week → add a new block starting the day after,
+seeded by duplicating the finished block's weekly template → adjust → no overlap conflict →
+the new block's sessions appear from that date.
+
+Completed session logs inside the finished block are untouched by any of this: they hold
+their own snapshot of what was planned on the day they ran.
 
 ---
 

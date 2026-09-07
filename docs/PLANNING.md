@@ -2,7 +2,13 @@
 
 **Companion to:** PRD.md
 **Stack:** Flutter · Bloc · Drift · Android + iOS
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-25
+
+> **2026-08-25 — training blocks are now first-class.** A plan used to carry the dates
+> and one weekly template; ending a mesocycle meant creating a second plan. The design
+> handoff needs blocks as real objects (screens 4a, 4b and 5c), so `training_blocks` now
+> sits between plan and weekly template, and `weekIndex` counts from the block's start
+> date. A plan with a single block is exactly the old model, so nothing is lost.
 
 ---
 
@@ -86,15 +92,20 @@ Define a `SyncableTable` mixin so those four columns are declared once.
 exercises
   id, name, muscleGroup?, notes?
 
-plans
-  id, name, type (strength|endurance), startDate, endDate?, notes?
+plans                                 -- a container; carries no dates
+  id, name, type (strength|endurance), notes?
 
-session_templates
+training_blocks                       -- one mesocycle; PRD §3
+  id, planId → plans, name, orderIndex,
+  startDate, durationWeeks? (int), endDate? (explicit early stop), notes?
+
+session_templates                     -- owned by the plan, reusable across blocks
   id, planId → plans, name, notes?
 
-weekly_slots                          -- the weekly template
-  id, planId → plans, weekday (1..7), sessionTemplateId → session_templates
-  UNIQUE(planId, weekday) where deletedAt IS NULL
+weekly_slots                          -- the weekly template, one per block
+  id, blockId → training_blocks, weekday (1..7),
+  sessionTemplateId → session_templates
+  UNIQUE(blockId, weekday) where deletedAt IS NULL
 
 -- strength content
 exercise_entries
@@ -127,14 +138,21 @@ row instead of renumbering the list. Renormalise on save.
 
 ```
 week_overrides                        -- deloads, per-week swaps
-  id, planId → plans, weekIndex (0-based from plan startDate), weekday (1..7),
+  id, blockId → training_blocks,
+  weekIndex (0-based from the block's startDate), weekday (1..7),
   action (replace|remove|adjustLoad),
   replacementSessionTemplateId? → session_templates,
   loadMultiplier? (real)
 
 occurrence_exceptions                 -- single-occurrence skip / move
-  id, planId → plans, date, kind (skip|move), targetDate?
+  id, blockId → training_blocks, date, kind (skip|move), targetDate?
 ```
+
+**A block's end date is derived**, not stored, unless it was stopped early:
+`endDate ?? startDate + durationWeeks × 7 − 1 day`, and null/null means ongoing.
+Storing a `status` column was considered and rejected — it is a pure function of
+the dates and today, and a stored copy goes stale the moment the clock passes
+midnight.
 
 ### Logging side
 
@@ -142,7 +160,8 @@ Logs are **snapshots**. Once written they are never touched by plan edits.
 
 ```
 session_logs
-  id, planId → plans, sessionTemplateId? (nullable soft ref, survives template deletion),
+  id, planId → plans, blockId? → training_blocks (nullable soft ref),
+  sessionTemplateId? (nullable soft ref, survives template deletion),
   date, status (inProgress|completed|skipped),
   startedAt, completedAt?, totalDurationSeconds?, notes?,
   plannedSnapshot (TEXT, JSON)        -- full planned content at start time
@@ -185,9 +204,22 @@ Drift `MigrationStrategy` with explicit stepwise migrations from schema v1. Use
 
 ## 3. Domain models
 
-Plain `freezed` classes mirroring the concepts in PRD §3: `Plan`, `SessionTemplate`,
-`ExerciseEntry`, `PlannedSet`, `EnduranceBlock`, `RepeatGroup`, `WeekOverride`,
-`SessionOccurrence`, `SessionLog`, `LoggedSet`, `LoggedBlock`, `Exercise`.
+Plain `freezed` classes mirroring the concepts in PRD §3: `Plan`, `TrainingBlock`,
+`SessionTemplate`, `WeeklySlot`, `ExerciseEntry`, `PlannedSet`, `EnduranceBlock`,
+`RepeatGroup`, `WeekOverride`, `OccurrenceException`, `SessionOccurrence`, `SessionLog`,
+`LoggedSet`, `LoggedBlock`, `Exercise`.
+
+`TrainingBlock` derives what the schema does not store:
+
+```dart
+DateTime? get endDate =>            // null = ongoing
+    explicitEndDate ?? (durationWeeks == null
+        ? null
+        : startDate.addDays(durationWeeks! * 7 - 1));
+
+bool covers(DateTime date) =>
+    !date.isBefore(startDate) && (endDate == null || !date.isAfter(endDate!));
+```
 
 `SessionOccurrence` is the important one and does not exist in the database:
 
@@ -211,20 +243,22 @@ Pure function, `core/scheduling/`. Signature roughly:
 
 ```dart
 List<SessionOccurrence> computeOccurrences({
-  required List<Plan> activePlans,
-  required Map<String, List<WeeklySlot>> slotsByPlan,
-  required Map<String, List<WeekOverride>> overridesByPlan,
-  required Map<String, List<OccurrenceException>> exceptionsByPlan,
-  required Map<DateTime, SessionLog> logsByDate,
-  required DateTimeRange range,
+  required List<Plan> plans,
+  required Map<String, List<TrainingBlock>> blocksByPlan,
+  required Map<String, List<WeeklySlot>> slotsByBlock,
+  required Map<String, List<WeekOverride>> overridesByBlock,
+  required Map<String, List<OccurrenceException>> exceptionsByBlock,
+  required Map<String, SessionLog> logsByKey,
+  required DateRange range,
   required DateTime today,
 });
 ```
 
-Algorithm per plan, per date in range:
+Algorithm per plan, per block, per date in range:
 
-1. Skip if date is before `startDate` or after `endDate` (null end date = never after).
-2. `weekIndex = (date - startDate).inDays ~/ 7`.
+1. Skip if the block does not cover the date (`startDate` .. derived `endDate`;
+   a null end date is never "after").
+2. `weekIndex = (date - block.startDate).inDays ~/ 7`.
 3. Look up the `weekly_slot` for `date.weekday`. No slot → rest day, emit nothing.
 4. Apply any `week_override` matching `(weekIndex, weekday)`: remove → emit nothing;
    replace → swap the template id; adjustLoad → carry `loadMultiplier`.
@@ -233,14 +267,20 @@ Algorithm per plan, per date in range:
 6. Resolve status: a log exists → its status; else date < today → `missed`; else
    `scheduled`.
 
+Blocks within a plan cannot overlap (PRD §4.1), so step 1 selects at most one block
+per plan per date and the loop stays O(dates × plans).
+
 **Non-obvious correctness requirements, all of which need tests:**
 
 - All date arithmetic runs on **date-only values at local midnight**, never on raw
   `DateTime.now()`. DST transitions make `inDays` lie if times of day are involved.
   Normalise every date at the boundary.
-- Week 0 is the calendar week containing `startDate`, and it may be a partial week. A plan
-  starting on a Thursday has a week 0 with only Thursday–Sunday. Overrides for "week 4"
-  must mean the same thing to the user and the engine.
+- Week 0 is the calendar week containing the block's `startDate`, and it may be a partial
+  week. A block starting on a Thursday has a week 0 with only Thursday–Sunday. Overrides
+  for "week 4" must mean the same thing to the user and the engine.
+- `weekIndex` is counted from the **block's** start date, not the plan's. A plan's second
+  block restarts at week 0, which is what the "semaine 3 / 5" readout on design screen 4a
+  shows.
 - A moved occurrence must not collide with an existing occurrence of the same plan type on
   the target date. Validate at write time, not at compute time.
 
@@ -296,7 +336,8 @@ All tables from §2, all domain models, all repositories with stream-based reads
 occurrence engine with its test suite. No UI.
 
 **Done when:** unit tests cover partial first weeks, DST boundaries, null end dates,
-overrides, moves, skips, and two concurrent plans of different types.
+derived vs explicit block end dates, consecutive blocks in one plan, overrides, moves,
+skips, and two concurrent plans of different types.
 
 ### M2 — Plan editor, strength · ~4–5 days
 
@@ -356,7 +397,7 @@ B1 each round.
 
 ### M8 — Week overrides · ~2–3 days
 
-Plan week view, per-week swap/remove, load multiplier for deloads, correct propagation
+Block week view, per-week swap/remove, load multiplier for deloads, correct propagation
 through the occurrence engine (engine support already exists from M1; this is UI).
 
 **Done when:** week 4 of a plan can be turned into a −20 % deload and the day view reflects
