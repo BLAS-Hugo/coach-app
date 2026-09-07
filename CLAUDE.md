@@ -4,17 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-This repo is currently a fresh [Very Good CLI](https://github.com/VeryGoodOpenSource/very_good_cli) Flutter
-scaffold (the generated counter demo) for **Coach App**, a personal offline strength/endurance training
-tracker. The real app has not been built yet — `docs/PRD.md` (product spec) and `docs/PLANNING.md`
-(technical plan: architecture, schema, bloc inventory, occurrence engine algorithm, milestones) are the
-source of truth for what to build and how. **Read both before starting any feature work**, and check
-`docs/PLANNING.md` §6 to see which milestone is current.
+**Coach App** is a personal offline strength/endurance training tracker, built on a
+[Very Good CLI](https://github.com/VeryGoodOpenSource/very_good_cli) scaffold. `docs/PRD.md` (product
+spec) and `docs/PLANNING.md` (technical plan: architecture, schema, bloc inventory, occurrence engine
+algorithm, milestones) are the source of truth for what to build and how. **Read both before starting
+any feature work**, and check `docs/PLANNING.md` §6 to see which milestone is current.
 
-Only `bloc`/`flutter_bloc` and `intl` are in `pubspec.yaml` so far. `docs/PLANNING.md` §1 lists the full
-planned dependency set (`drift`, `freezed`, `go_router`, `get_it`, `uuid`, `fl_chart`,
-`flutter_foreground_task`, `wakelock_plus`, `audioplayers`, `flutter_local_notifications`) — add these as
-milestones require them, not preemptively.
+**M0 and M1 are done; M2 (plan editor, strength) is next.** In place: theme, `go_router` shell and
+`get_it` wiring; `core/utils/` date types; the `core/scheduling/` occurrence engine; Drift schema v1;
+and `core/repositories/`, which exposes domain models over `watch()` streams and holds the write-time
+validation the schema cannot express. M2 is the first milestone with real blocs and screens — the
+`features/` folders are still placeholder pages behind the three tabs.
+
+`pubspec.yaml` carries `bloc`/`flutter_bloc`, `drift`/`drift_flutter`, `freezed`, `get_it`, `go_router`,
+`intl`, `json_annotation`, `meta` and `uuid`. The rest of the planned set in `docs/PLANNING.md` §1
+(`fl_chart`, `flutter_foreground_task`, `wakelock_plus`, `audioplayers`,
+`flutter_local_notifications`) is deliberately absent — add each when its milestone arrives, not
+preemptively.
 
 ## Commands
 
@@ -50,6 +56,11 @@ tool/coverage.sh
 # Coverage report (requires lcov)
 genhtml coverage/lcov.info -o coverage/
 
+# Code generation (drift, freezed, json_serializable). Run after touching a table, a domain model,
+# a DAO, or any freezed bloc state — the .g.dart / .freezed.dart files are gitignored, so a fresh
+# clone does not analyze until this has run.
+dart run build_runner build
+
 # Regenerate localizations after editing an .arb file
 flutter gen-l10n --arb-dir="lib/l10n/arb"
 ```
@@ -68,7 +79,7 @@ UI (widgets) → Bloc / Cubit → Repository (interface) → Drift DAO → SQLit
                            Domain models + pure logic
 ```
 
-- **The occurrence engine** (`core/scheduling/`, planned) is pure Dart with no I/O — it derives which
+- **The occurrence engine** (`core/scheduling/`) is pure Dart with no I/O — it derives which
   training sessions fall on which dates from a plan's weekly template, week overrides, and per-occurrence
   exceptions. It is the single most important piece of logic in the app (`docs/PLANNING.md` §4) and must
   stay unit-testable without a database. All date arithmetic in it must use date-only values at local
@@ -82,17 +93,17 @@ UI (widgets) → Bloc / Cubit → Repository (interface) → Drift DAO → SQLit
 - Every table carries a UUID (v7) primary key, `createdAt`, `updatedAt`, and a nullable `deletedAt`
   (soft delete) — this is a sync-ready baseline for a future backup feature and is non-negotiable
   (`docs/PRD.md` §8). Never use autoincrement integer keys or hard deletes.
-- Planned package layout lives under `lib/`: `app/` (DI, routing, theme), `core/database`,
-  `core/models`, `core/scheduling`, `core/utils`, `core/widgets`, `l10n/`, and one folder per feature
-  under `features/` (`plans`, `calendar`, `runner`, `history`, `settings`), each with `bloc/`, `view/`,
-  `widgets/`.
+- Package layout under `lib/`: `app/` (DI, routing, theme), `core/database` (schema in `tables/`,
+  queries in `dao/`, row↔domain mapping in `mappers.dart`), `core/models`, `core/repositories`,
+  `core/scheduling`, `core/utils`, `core/widgets`, `l10n/`, and one folder per feature under
+  `features/` (`plans`, `calendar`, `runner`, `history`, `settings`), each with `data/`, `domain/`
+  and `presentation/` — the last holding `bloc/`, `view/` and `widgets/`.
 
 ## Conventions
 
 - **French is the only UI language in V1.** Every user-visible string goes through
-  `lib/l10n/arb/app_fr.arb` (add it — only `app_en.arb`/`app_es.arb` exist from the template right now)
-  and is accessed via `context.l10n`; never hardcode a string in a widget. Code, comments, commit
-  messages, and docs are in English.
+  `lib/l10n/arb/app_fr.arb`, the only ARB file, and is accessed via `context.l10n`; never hardcode a
+  string in a widget. Code, comments, commit messages, and docs are in English.
 - Dates are stored as UTC-midnight epoch days or ISO date strings, never local `DateTime` with a time
   component. Weights are stored in kilograms, distances in metres; unit preference (kg/lb, km/mi) is a
   display-layer concern only.
