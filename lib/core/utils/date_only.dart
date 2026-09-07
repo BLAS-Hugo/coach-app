@@ -52,6 +52,9 @@ final class DateOnly implements Comparable<DateOnly> {
     );
   }
 
+  /// The date [epochDay] days after 1970-01-01.
+  const factory DateOnly.fromEpochDay(int epochDay) = DateOnly._;
+
   const DateOnly._(this.epochDay);
 
   factory DateOnly._fromUtc(DateTime utc) {
