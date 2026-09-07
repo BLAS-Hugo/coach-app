@@ -121,3 +121,6 @@ reports/
 # analysis_options.yaml plus the CI coverage excludes already ignore them.
 *.freezed.dart
 *.g.dart
+
+# Per-machine Claude Code permissions; not project policy.
+.claude/settings.local.json
