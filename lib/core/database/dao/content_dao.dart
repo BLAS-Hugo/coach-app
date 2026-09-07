@@ -99,10 +99,9 @@ class ContentDao extends DatabaseAccessor<AppDatabase>
 
   // --- intensity labels --------------------------------------------------
 
-  Stream<List<IntensityLabelRow>> watchIntensityLabels() =>
-      (selectLive(intensityLabels)
-            ..orderBy([(t) => OrderingTerm(expression: t.orderIndex)]))
-          .watch();
+  Stream<List<IntensityLabelRow>> watchIntensityLabels() => (selectLive(
+    intensityLabels,
+  )..orderBy([(t) => OrderingTerm(expression: t.orderIndex)])).watch();
 
   Future<void> saveIntensityLabel(IntensityLabelRow row) =>
       upsertRow(intensityLabels, row);
@@ -125,11 +124,43 @@ class ContentDao extends DatabaseAccessor<AppDatabase>
     await softDeleteRow(intensityLabels, id);
   });
 
+  /// Soft-deletes everything hanging off [templateIds].
+  ///
+  /// Called when a template or its whole plan is deleted: content left live
+  /// under a deleted template is invisible to every screen but would come
+  /// back the moment anything read that template by id.
+  Future<void> deleteContentOfTemplates(Iterable<String> templateIds) {
+    final ids = templateIds.toList();
+    if (ids.isEmpty) return Future.value();
+    return transaction(() async {
+      await softDeleteWhere(
+        plannedSets,
+        (t) => t.exerciseEntryId.isInQuery(_entryIdsOfTemplates(ids)),
+      );
+      await softDeleteWhere(
+        exerciseEntries,
+        (t) => t.sessionTemplateId.isIn(ids),
+      );
+      await softDeleteWhere(
+        enduranceBlocks,
+        (t) => t.sessionTemplateId.isIn(ids),
+      );
+      await softDeleteWhere(
+        repeatGroups,
+        (t) => t.sessionTemplateId.isIn(ids),
+      );
+    });
+  }
+
   /// Every entry id of a template, deleted ones included.
   JoinedSelectStatement<$ExerciseEntriesTable, ExerciseEntryRow> _entryIdsOf(
     String templateId,
-  ) =>
-      selectOnly(exerciseEntries)
-        ..addColumns([exerciseEntries.id])
-        ..where(exerciseEntries.sessionTemplateId.equals(templateId));
+  ) => selectOnly(exerciseEntries)
+    ..addColumns([exerciseEntries.id])
+    ..where(exerciseEntries.sessionTemplateId.equals(templateId));
+
+  JoinedSelectStatement<$ExerciseEntriesTable, ExerciseEntryRow>
+  _entryIdsOfTemplates(List<String> templateIds) => selectOnly(exerciseEntries)
+    ..addColumns([exerciseEntries.id])
+    ..where(exerciseEntries.sessionTemplateId.isIn(templateIds));
 }

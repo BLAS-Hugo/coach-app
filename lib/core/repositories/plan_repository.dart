@@ -1,4 +1,6 @@
+import 'package:coach_app/core/database/dao/content_dao.dart';
 import 'package:coach_app/core/database/dao/planning_dao.dart';
+import 'package:coach_app/core/database/dao/scheduling_dao.dart';
 import 'package:coach_app/core/database/mappers.dart';
 import 'package:coach_app/core/models/models.dart';
 import 'package:coach_app/core/utils/date_only.dart';
@@ -78,9 +80,15 @@ abstract interface class PlanRepository {
 /// exclusion constraints — and a rule enforced in one editor screen is a
 /// rule the next writer forgets.
 class DriftPlanRepository implements PlanRepository {
-  const DriftPlanRepository(this._dao);
+  const DriftPlanRepository(this._dao, this._content, this._scheduling);
 
   final PlanningDao _dao;
+
+  /// Reached only to cascade deletes. A plan owns its templates' content
+  /// and its blocks' deviations, but each has its own repository for
+  /// everything else.
+  final ContentDao _content;
+  final SchedulingDao _scheduling;
 
   @override
   Stream<List<Plan>> watchPlans() => _dao.watchPlans().map(
@@ -95,11 +103,16 @@ class DriftPlanRepository implements PlanRepository {
   Future<void> savePlan(Plan plan) => _dao.savePlan(plan.toRow(_dao.now()));
 
   @override
-  Future<void> deletePlan(String id) => _dao.deletePlan(id);
+  Future<void> deletePlan(String id) => _dao.transaction(() async {
+    await _content.deleteContentOfTemplates(await _dao.templateIdsOf(id));
+    await _scheduling.deleteDeviationsOfBlocks(await _dao.blockIdsOf(id));
+    await _dao.deletePlan(id);
+  });
 
   @override
-  Stream<List<TrainingBlock>> watchBlocks(String planId) =>
-      _dao.watchBlocks(planId).map(
+  Stream<List<TrainingBlock>> watchBlocks(String planId) => _dao
+      .watchBlocks(planId)
+      .map(
         (rows) => rows.map((row) => row.toDomain()).toList(),
       );
 
@@ -119,7 +132,10 @@ class DriftPlanRepository implements PlanRepository {
       // those days meaningful; deleting would strand them (PRD §4.1).
       throw BlockStartedException(id);
     }
-    await _dao.deleteBlock(id);
+    await _dao.transaction(() async {
+      await _scheduling.deleteDeviationsOfBlocks([id]);
+      await _dao.deleteBlock(id);
+    });
   }
 
   @override
@@ -130,8 +146,9 @@ class DriftPlanRepository implements PlanRepository {
   }
 
   @override
-  Stream<List<SessionTemplate>> watchTemplates(String planId) =>
-      _dao.watchTemplates(planId).map(
+  Stream<List<SessionTemplate>> watchTemplates(String planId) => _dao
+      .watchTemplates(planId)
+      .map(
         (rows) => _byName(
           rows.map((row) => row.toDomain()),
           (template) => template.name,
@@ -143,7 +160,10 @@ class DriftPlanRepository implements PlanRepository {
       _dao.saveTemplate(template.toRow(_dao.now()));
 
   @override
-  Future<void> deleteTemplate(String id) => _dao.deleteTemplate(id);
+  Future<void> deleteTemplate(String id) => _dao.transaction(() async {
+    await _content.deleteContentOfTemplates([id]);
+    await _dao.deleteTemplate(id);
+  });
 
   @override
   Stream<List<WeeklySlot>> watchSlots(String blockId) => _dao
@@ -151,8 +171,7 @@ class DriftPlanRepository implements PlanRepository {
       .map((rows) => rows.map((row) => row.toDomain()).toList());
 
   @override
-  Future<void> setSlot(WeeklySlot slot) =>
-      _dao.setSlot(slot.toRow(_dao.now()));
+  Future<void> setSlot(WeeklySlot slot) => _dao.setSlot(slot.toRow(_dao.now()));
 
   @override
   Future<void> clearSlot({required String blockId, required int weekday}) =>
@@ -189,8 +208,7 @@ class DriftPlanRepository implements PlanRepository {
   /// Ordered on the folded name: SQLite's collations are ASCII-only, so
   /// sorting in SQL would file "Épaules" after "Squat".
   List<T> _byName<T>(Iterable<T> items, String Function(T) name) =>
-      items.toList()
-        ..sort(
-          (a, b) => foldForSearch(name(a)).compareTo(foldForSearch(name(b))),
-        );
+      items.toList()..sort(
+        (a, b) => foldForSearch(name(a)).compareTo(foldForSearch(name(b))),
+      );
 }

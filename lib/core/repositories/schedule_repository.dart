@@ -63,9 +63,8 @@ class DriftScheduleRepository implements ScheduleRepository {
   final SchedulingDao _dao;
 
   @override
-  Stream<List<SessionOccurrence>> watchOccurrences(DateRange range) => _dao
-      .watchSources(range)
-      .map((sources) => _compute(sources, range));
+  Stream<List<SessionOccurrence>> watchOccurrences(DateRange range) =>
+      _dao.watchSources(range).map((sources) => _compute(sources, range));
 
   @override
   Future<List<SessionOccurrence>> occurrencesIn(DateRange range) async =>

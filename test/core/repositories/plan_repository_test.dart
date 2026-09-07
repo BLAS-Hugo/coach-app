@@ -1,7 +1,11 @@
 import 'package:coach_app/core/database/app_database.dart';
+import 'package:coach_app/core/database/dao/content_dao.dart';
 import 'package:coach_app/core/database/dao/planning_dao.dart';
+import 'package:coach_app/core/database/dao/scheduling_dao.dart';
 import 'package:coach_app/core/models/models.dart';
 import 'package:coach_app/core/repositories/plan_repository.dart';
+import 'package:coach_app/core/repositories/schedule_repository.dart';
+import 'package:coach_app/core/repositories/session_content_repository.dart';
 import 'package:coach_app/core/utils/date_only.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,6 +14,8 @@ import '../../helpers/test_database.dart';
 void main() {
   late AppDatabase db;
   late PlanRepository repository;
+  late SessionContentRepository content;
+  late ScheduleRepository schedule;
 
   /// The day every test treats as "today", so "has this block started?"
   /// never depends on the wall clock.
@@ -24,8 +30,8 @@ void main() {
 
   TrainingBlock block(
     String id, {
-    String planId = 'p1',
     required DateOnly startDate,
+    String planId = 'p1',
     int? durationWeeks = 4,
     DateOnly? explicitEndDate,
     int orderIndex = 0,
@@ -41,9 +47,14 @@ void main() {
 
   setUp(() async {
     db = openTestDatabase();
+    final clock = clockAt(DateTime(2026, 9, 7, 10));
     repository = DriftPlanRepository(
-      PlanningDao(db, now: clockAt(DateTime(2026, 9, 7, 10))),
+      PlanningDao(db, now: clock),
+      ContentDao(db, now: clock),
+      SchedulingDao(db, now: clock),
     );
+    content = DriftSessionContentRepository(ContentDao(db, now: clock));
+    schedule = DriftScheduleRepository(SchedulingDao(db, now: clock));
     await repository.savePlan(strength);
     await repository.savePlan(endurance);
   });
@@ -72,30 +83,33 @@ void main() {
       expect(await repository.findPlan('p1'), isNull);
     });
 
-    test('deleting a plan cascades to its blocks, templates and slots', () async {
-      await repository.saveTemplate(
-        const SessionTemplate(id: 't1', planId: 'p1', name: 'Haut du corps'),
-      );
-      await repository.saveBlock(block('b1', startDate: today));
-      await repository.setSlot(
-        const WeeklySlot(
-          id: 's1',
-          blockId: 'b1',
-          weekday: DateTime.monday,
-          sessionTemplateId: 't1',
-        ),
-      );
+    test(
+      'deleting a plan cascades to its blocks, templates and slots',
+      () async {
+        await repository.saveTemplate(
+          const SessionTemplate(id: 't1', planId: 'p1', name: 'Haut du corps'),
+        );
+        await repository.saveBlock(block('b1', startDate: today));
+        await repository.setSlot(
+          const WeeklySlot(
+            id: 's1',
+            blockId: 'b1',
+            weekday: DateTime.monday,
+            sessionTemplateId: 't1',
+          ),
+        );
 
-      await repository.deletePlan('p1');
+        await repository.deletePlan('p1');
 
-      expect(await repository.watchBlocks('p1').first, isEmpty);
-      expect(await repository.watchTemplates('p1').first, isEmpty);
-      expect(await repository.watchSlots('b1').first, isEmpty);
-      // Nothing was actually removed: a log points at this plan and must
-      // stay readable in history (PRD §4.1).
-      expect(await db.select(db.trainingBlocks).get(), hasLength(1));
-      expect(await db.select(db.weeklySlots).get(), hasLength(1));
-    });
+        expect(await repository.watchBlocks('p1').first, isEmpty);
+        expect(await repository.watchTemplates('p1').first, isEmpty);
+        expect(await repository.watchSlots('b1').first, isEmpty);
+        // Nothing was actually removed: a log points at this plan and must
+        // stay readable in history (PRD §4.1).
+        expect(await db.select(db.trainingBlocks).get(), hasLength(1));
+        expect(await db.select(db.weeklySlots).get(), hasLength(1));
+      },
+    );
   });
 
   group('blocks', () {
@@ -104,7 +118,7 @@ void main() {
         block('b2', startDate: DateOnly(2026, 10, 5), orderIndex: 100),
       );
       await repository.saveBlock(
-        block('b1', startDate: DateOnly(2026, 9, 7), orderIndex: 0),
+        block('b1', startDate: DateOnly(2026, 9, 7)),
       );
 
       final blocks = await repository.watchBlocks('p1').first;
@@ -166,7 +180,7 @@ void main() {
       );
 
       await expectLater(
-        repository.saveBlock(block('b2', startDate: DateOnly(2027, 1, 1))),
+        repository.saveBlock(block('b2', startDate: DateOnly(2027, 2, 15))),
         throwsA(isA<BlockOverlapException>()),
       );
     });
@@ -259,6 +273,22 @@ void main() {
       );
     });
 
+    test('orders templates by name, accents folded', () async {
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't2', planId: 'p1', name: 'Étirements'),
+      );
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't3', planId: 'p1', name: 'Bas du corps'),
+      );
+
+      expect(
+        (await repository.watchTemplates('p1').first).map((t) => t.id),
+        // Bas, Étirements, Haut: folded, "Étirements" files under E where a
+        // reader looks for it, not after "Haut" where its code unit sits.
+        ['t3', 't2', 't1'],
+      );
+    });
+
     test('deleting a template clears the weekly slots using it', () async {
       await repository.saveBlock(block('b1', startDate: today));
       await repository.setSlot(
@@ -334,6 +364,179 @@ void main() {
       await repository.clearSlot(blockId: 'b1', weekday: DateTime.monday);
 
       expect(await repository.watchSlots('b1').first, isEmpty);
+    });
+  });
+
+  group('cascading deletes', () {
+    setUp(() async {
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't1', planId: 'p1', name: 'Haut du corps'),
+      );
+      await repository.saveBlock(block('b1', startDate: today));
+      await repository.setSlot(
+        const WeeklySlot(
+          id: 's1',
+          blockId: 'b1',
+          weekday: DateTime.monday,
+          sessionTemplateId: 't1',
+        ),
+      );
+      await db
+          .into(db.exercises)
+          .insert(
+            ExercisesCompanion.insert(
+              id: 'x1',
+              createdAt: DateTime(2026, 9, 7),
+              updatedAt: DateTime(2026, 9, 7),
+              name: 'Squat',
+            ),
+          );
+      await content.replaceStrengthContent(
+        templateId: 't1',
+        entries: [
+          const ExerciseEntry(
+            id: 'e1',
+            sessionTemplateId: 't1',
+            exerciseId: 'x1',
+            orderIndex: 0,
+          ),
+        ],
+        setsByEntry: {
+          'e1': [
+            const PlannedSet(
+              id: 'ps1',
+              exerciseEntryId: 'e1',
+              orderIndex: 0,
+              kind: SetKind.weightReps,
+              weight: 80,
+              reps: 5,
+            ),
+          ],
+        },
+      );
+      await schedule.setOverride(
+        const WeekOverride(
+          id: 'o1',
+          blockId: 'b1',
+          weekIndex: 1,
+          weekday: DateTime.monday,
+          action: WeekOverrideAction.remove,
+        ),
+      );
+      await db
+          .into(db.occurrenceMoves)
+          .insert(
+            OccurrenceMovesCompanion.insert(
+              id: 'm1',
+              createdAt: DateTime(2026, 9, 7),
+              updatedAt: DateTime(2026, 9, 7),
+              blockId: 'b1',
+              date: DateOnly(2026, 9, 14),
+              targetDate: DateOnly(2026, 9, 15),
+            ),
+          );
+    });
+
+    test('deleting a plan retires its templates content', () async {
+      await repository.deletePlan('p1');
+
+      // Content left live under a deleted plan would come back the moment
+      // anything read a template by id, and would count against nothing.
+      expect(await content.watchEntries('t1').first, isEmpty);
+      expect(await content.watchPlannedSets('e1').first, isEmpty);
+    });
+
+    test('deleting a plan retires its blocks deviations', () async {
+      await repository.deletePlan('p1');
+
+      expect(await schedule.watchOverrides('b1').first, isEmpty);
+      expect(await schedule.watchMoves('b1').first, isEmpty);
+    });
+
+    test('deleting a template retires its content', () async {
+      await repository.deleteTemplate('t1');
+
+      expect(await content.watchEntries('t1').first, isEmpty);
+      expect(await content.watchPlannedSets('e1').first, isEmpty);
+    });
+
+    test('deleting a block retires its deviations', () async {
+      await repository.stopBlock('b1', on: today);
+      await repository.saveBlock(
+        block('b2', startDate: DateOnly(2026, 9, 21), orderIndex: 100),
+      );
+      await db
+          .into(db.weekOverrides)
+          .insert(
+            WeekOverridesCompanion.insert(
+              id: 'o2',
+              createdAt: DateTime(2026, 9, 7),
+              updatedAt: DateTime(2026, 9, 7),
+              blockId: 'b2',
+              weekIndex: 0,
+              weekday: DateTime.monday,
+              action: WeekOverrideAction.remove,
+            ),
+          );
+
+      await repository.deleteBlock('b2');
+
+      expect(await schedule.watchOverrides('b2').first, isEmpty);
+      // The other block keeps its own.
+      expect(await schedule.watchOverrides('b1').first, hasLength(1));
+    });
+
+    test('endurance content goes with its plan', () async {
+      await content.replaceEnduranceContent(
+        templateId: 't1',
+        repeatGroups: [
+          const RepeatGroup(
+            id: 'g1',
+            sessionTemplateId: 't1',
+            orderIndex: 0,
+            repeatCount: 6,
+          ),
+        ],
+        blocks: [
+          const EnduranceBlock(
+            id: 'eb1',
+            sessionTemplateId: 't1',
+            orderIndex: 0,
+            role: EnduranceBlockRole.work,
+            measure: EnduranceMeasure.distance,
+            targetValue: 400,
+            repeatGroupId: 'g1',
+          ),
+        ],
+      );
+
+      await repository.deletePlan('p1');
+
+      expect(await content.watchEnduranceBlocks('t1').first, isEmpty);
+      expect(await content.watchRepeatGroups('t1').first, isEmpty);
+    });
+  });
+
+  group('exception messages', () {
+    test('name the block in the way and the one it collides with', () {
+      // These reach the user through a snackbar in M2, so they have to say
+      // which block is the problem, not just that there is one.
+      expect(
+        const BlockOverlapException('b2', 'b1').toString(),
+        contains('b2'),
+      );
+      expect(
+        const BlockOverlapException('b2', 'b1').toString(),
+        contains('b1'),
+      );
+      expect(
+        const PlanTypeConflictException('b2', 'p1').toString(),
+        contains('p1'),
+      );
+      expect(
+        const BlockStartedException('b1').toString(),
+        contains('stopped'),
+      );
     });
   });
 }

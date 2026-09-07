@@ -1,4 +1,5 @@
 import 'package:coach_app/core/database/app_database.dart';
+import 'package:coach_app/core/database/dao/content_dao.dart';
 import 'package:coach_app/core/database/dao/planning_dao.dart';
 import 'package:coach_app/core/database/dao/scheduling_dao.dart';
 import 'package:coach_app/core/models/models.dart';
@@ -44,7 +45,11 @@ void main() {
 
   setUp(() async {
     db = openTestDatabase();
-    plans = DriftPlanRepository(PlanningDao(db, now: clock));
+    plans = DriftPlanRepository(
+      PlanningDao(db, now: clock),
+      ContentDao(db, now: clock),
+      SchedulingDao(db, now: clock),
+    );
     repository = DriftScheduleRepository(SchedulingDao(db, now: clock));
 
     await plans.savePlan(
@@ -235,32 +240,35 @@ void main() {
       expect(occurrence.date, today.addDays(2));
     });
 
-    test('refuses a target already holding a session of the same type', () async {
-      await plans.setSlot(
-        const WeeklySlot(
-          id: 'sl2',
-          blockId: 'b1',
-          weekday: DateTime.wednesday,
-          sessionTemplateId: 't1',
-        ),
-      );
+    test(
+      'refuses a target already holding a session of the same type',
+      () async {
+        await plans.setSlot(
+          const WeeklySlot(
+            id: 'sl2',
+            blockId: 'b1',
+            weekday: DateTime.wednesday,
+            sessionTemplateId: 't1',
+          ),
+        );
 
-      // Validated at write time: the occurrence engine computes a day's
-      // sessions and has no way to report a conflict back to the user
-      // (`docs/PLANNING.md` §4).
-      await expectLater(
-        repository.moveOccurrence(
-          blockId: 'b1',
-          from: today,
-          to: today.addDays(2),
-        ),
-        throwsA(isA<OccurrenceCollisionException>()),
-      );
-      expect(
-        (await repository.watchOccurrences(week).first).map((o) => o.date),
-        [today, today.addDays(2)],
-      );
-    });
+        // Validated at write time: the occurrence engine computes a day's
+        // sessions and has no way to report a conflict back to the user
+        // (`docs/PLANNING.md` §4).
+        await expectLater(
+          repository.moveOccurrence(
+            blockId: 'b1',
+            from: today,
+            to: today.addDays(2),
+          ),
+          throwsA(isA<OccurrenceCollisionException>()),
+        );
+        expect(
+          (await repository.watchOccurrences(week).first).map((o) => o.date),
+          [today, today.addDays(2)],
+        );
+      },
+    );
 
     test('allows a target holding a session of the other type', () async {
       await plans.savePlan(
@@ -336,6 +344,27 @@ void main() {
         (await repository.watchOccurrences(week).first).single.date,
         today,
       );
+    });
+  });
+
+  group('failures', () {
+    test('a collision names the day and the type', () {
+      expect(
+        OccurrenceCollisionException(today, PlanType.strength).toString(),
+        allOf(contains('2026-09-07'), contains('strength')),
+      );
+    });
+
+    test('a broken read surfaces on the stream', () async {
+      final emissions = repository.watchOccurrences(week);
+
+      // Losing a table mid-session is not a scenario the app creates, but a
+      // stream that dies silently would leave the day view frozen on stale
+      // occurrences with no way to tell.
+      await db.customStatement('DROP TABLE week_overrides');
+      db.notifyUpdates({TableUpdate.onTable(db.plans)});
+
+      await expectLater(emissions, emitsThrough(emitsError(anything)));
     });
   });
 }

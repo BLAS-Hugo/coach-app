@@ -148,17 +148,20 @@ void main() {
       expect(await repository.findById(created.id), created);
     });
 
-    test('reuses an existing exercise regardless of case and spacing', () async {
-      await repository.save(const Exercise(id: 'e1', name: 'Squat'));
+    test(
+      'reuses an existing exercise regardless of case and spacing',
+      () async {
+        await repository.save(const Exercise(id: 'e1', name: 'Squat'));
 
-      final found = await repository.findOrCreateByName('  squat ');
+        final found = await repository.findOrCreateByName('  squat ');
 
-      // Fragmenting "Squat" from "squat " would silently split that
-      // exercise's history in two, which is the whole reason exercises have
-      // an identity at all (PRD §4.5).
-      expect(found.id, 'e1');
-      expect(await db.select(db.exercises).get(), hasLength(1));
-    });
+        // Fragmenting "Squat" from "squat " would silently split that
+        // exercise's history in two, which is the whole reason exercises have
+        // an identity at all (PRD §4.5).
+        expect(found.id, 'e1');
+        expect(await db.select(db.exercises).get(), hasLength(1));
+      },
+    );
 
     test('refuses a blank name', () async {
       // The autocomplete can hand this over if the user taps "create" on an

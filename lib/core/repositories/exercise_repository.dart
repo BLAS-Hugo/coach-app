@@ -61,8 +61,7 @@ class DriftExerciseRepository implements ExerciseRepository {
       (await _dao.findById(id))?.toDomain();
 
   @override
-  Future<void> save(Exercise exercise) =>
-      _dao.save(exercise.toRow(_dao.now()));
+  Future<void> save(Exercise exercise) => _dao.save(exercise.toRow(_dao.now()));
 
   @override
   Future<Exercise> findOrCreateByName(String name) async {

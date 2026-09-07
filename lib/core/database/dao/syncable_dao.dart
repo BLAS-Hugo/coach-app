@@ -37,8 +37,9 @@ mixin SyncableDao on DatabaseAccessor<AppDatabase> {
   Future<R?> findLiveById<T extends Table, R>(
     TableInfo<T, R> table,
     String id,
-  ) => (selectLive(table)..where((_) => _id(table).equals(id)))
-      .getSingleOrNull();
+  ) => (selectLive(
+    table,
+  )..where((_) => _id(table).equals(id))).getSingleOrNull();
 
   /// Watches the live rows matching [filter].
   Stream<List<R>> watchLiveWhere<T extends Table, R>(

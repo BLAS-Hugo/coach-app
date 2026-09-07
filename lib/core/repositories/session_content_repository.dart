@@ -150,6 +150,5 @@ class DriftSessionContentRepository implements SessionContentRepository {
       _dao.saveIntensityLabel(label.toRow(_dao.now()));
 
   @override
-  Future<void> deleteIntensityLabel(String id) =>
-      _dao.deleteIntensityLabel(id);
+  Future<void> deleteIntensityLabel(String id) => _dao.deleteIntensityLabel(id);
 }

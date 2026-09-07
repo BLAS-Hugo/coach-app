@@ -1,10 +1,10 @@
 import 'package:coach_app/core/database/app_database.dart';
 import 'package:coach_app/core/database/dao/content_dao.dart';
 import 'package:coach_app/core/database/dao/planning_dao.dart';
+import 'package:coach_app/core/database/dao/scheduling_dao.dart';
 import 'package:coach_app/core/models/models.dart';
 import 'package:coach_app/core/repositories/plan_repository.dart';
 import 'package:coach_app/core/repositories/session_content_repository.dart';
-import 'package:drift/drift.dart' hide isNull;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/test_database.dart';
@@ -52,7 +52,11 @@ void main() {
     db = openTestDatabase();
     repository = DriftSessionContentRepository(ContentDao(db, now: clock));
 
-    final plans = DriftPlanRepository(PlanningDao(db, now: clock));
+    final plans = DriftPlanRepository(
+      PlanningDao(db, now: clock),
+      ContentDao(db, now: clock),
+      SchedulingDao(db, now: clock),
+    );
     await plans.savePlan(
       const Plan(id: 'p1', name: 'Upper/Lower', type: PlanType.strength),
     );
@@ -82,7 +86,10 @@ void main() {
     test('writes entries and their planned sets in one commit', () async {
       await repository.replaceStrengthContent(
         templateId: 't1',
-        entries: [entry('e1'), entry('e2', exerciseId: 'x2')],
+        entries: [
+          entry('e1'),
+          entry('e2', exerciseId: 'x2'),
+        ],
         setsByEntry: {
           'e1': [plannedSet('s1', 'e1'), plannedSet('s2', 'e1', reps: 3)],
           'e2': [plannedSet('s3', 'e2')],
@@ -118,9 +125,12 @@ void main() {
         [0, 100],
       );
       expect(
-        (await repository.watchPlannedSets(
-          'e1',
-        ).first).map((s) => s.orderIndex),
+        (await repository
+                .watchPlannedSets(
+                  'e1',
+                )
+                .first)
+            .map((s) => s.orderIndex),
         [0, 100],
       );
     });
@@ -128,13 +138,19 @@ void main() {
     test('reordering the list reorders what is read back', () async {
       await repository.replaceStrengthContent(
         templateId: 't1',
-        entries: [entry('e1'), entry('e2', exerciseId: 'x2')],
+        entries: [
+          entry('e1'),
+          entry('e2', exerciseId: 'x2'),
+        ],
         setsByEntry: const {},
       );
 
       await repository.replaceStrengthContent(
         templateId: 't1',
-        entries: [entry('e2', exerciseId: 'x2'), entry('e1')],
+        entries: [
+          entry('e2', exerciseId: 'x2'),
+          entry('e1'),
+        ],
         setsByEntry: const {},
       );
 
@@ -147,7 +163,10 @@ void main() {
     test('drops an entry left out of the commit, and its sets', () async {
       await repository.replaceStrengthContent(
         templateId: 't1',
-        entries: [entry('e1'), entry('e2', exerciseId: 'x2')],
+        entries: [
+          entry('e1'),
+          entry('e2', exerciseId: 'x2'),
+        ],
         setsByEntry: {
           'e1': [plannedSet('s1', 'e1')],
           'e2': [plannedSet('s2', 'e2')],

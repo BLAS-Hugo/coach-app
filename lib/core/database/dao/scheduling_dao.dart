@@ -169,10 +169,11 @@ class SchedulingDao extends DatabaseAccessor<AppDatabase>
   Future<OccurrenceMoveRow?> findMove({
     required String blockId,
     required DateOnly date,
-  }) => (selectLive(occurrenceMoves)..where(
-        (t) => t.blockId.equals(blockId) & t.date.equals(date.epochDay),
-      ))
-      .getSingleOrNull();
+  }) =>
+      (selectLive(occurrenceMoves)..where(
+            (t) => t.blockId.equals(blockId) & t.date.equals(date.epochDay),
+          ))
+          .getSingleOrNull();
 
   /// Records [row], replacing any move already leaving its source date.
   Future<void> setMove(OccurrenceMoveRow row) => transaction(() async {
@@ -185,6 +186,19 @@ class SchedulingDao extends DatabaseAccessor<AppDatabase>
     );
     await upsertRow(occurrenceMoves, row);
   });
+
+  /// Soft-deletes every deviation belonging to [blockIds].
+  ///
+  /// A move or an override outliving its block would be dead weight the
+  /// engine reads on every recomputation and never applies.
+  Future<void> deleteDeviationsOfBlocks(Iterable<String> blockIds) {
+    final ids = blockIds.toList();
+    if (ids.isEmpty) return Future.value();
+    return transaction(() async {
+      await softDeleteWhere(weekOverrides, (t) => t.blockId.isIn(ids));
+      await softDeleteWhere(occurrenceMoves, (t) => t.blockId.isIn(ids));
+    });
+  }
 
   Future<void> clearMove({required String blockId, required DateOnly date}) =>
       softDeleteWhere(

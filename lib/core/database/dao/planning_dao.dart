@@ -62,13 +62,14 @@ class PlanningDao extends DatabaseAccessor<AppDatabase>
   /// This is what the "at most one active plan per type" rule of PRD §4.1 is
   /// checked against.
   Future<List<TrainingBlockRow>> getBlocksOfType(PlanType type) {
-    final query = select(trainingBlocks).join([
-      innerJoin(plans, plans.id.equalsExp(trainingBlocks.planId)),
-    ])..where(
-      trainingBlocks.deletedAt.isNull() &
-          plans.deletedAt.isNull() &
-          plans.type.equalsValue(type),
-    );
+    final query =
+        select(trainingBlocks).join([
+          innerJoin(plans, plans.id.equalsExp(trainingBlocks.planId)),
+        ])..where(
+          trainingBlocks.deletedAt.isNull() &
+              plans.deletedAt.isNull() &
+              plans.type.equalsValue(type),
+        );
     return query.map((row) => row.readTable(trainingBlocks)).get();
   }
 
@@ -96,6 +97,27 @@ class PlanningDao extends DatabaseAccessor<AppDatabase>
     await softDeleteWhere(weeklySlots, (t) => t.sessionTemplateId.equals(id));
     await softDeleteRow(sessionTemplates, id);
   });
+
+  /// The ids of a plan's blocks, deleted ones included.
+  ///
+  /// Deleted rows are included so a cascade reaches the deviations of a
+  /// block that was retired earlier and never cleaned up.
+  Future<List<String>> blockIdsOf(String planId) async {
+    final query = selectOnly(trainingBlocks)
+      ..addColumns([trainingBlocks.id])
+      ..where(trainingBlocks.planId.equals(planId));
+    final rows = await query.get();
+    return [for (final row in rows) row.read(trainingBlocks.id)!];
+  }
+
+  /// The ids of a plan's session templates, deleted ones included.
+  Future<List<String>> templateIdsOf(String planId) async {
+    final query = selectOnly(sessionTemplates)
+      ..addColumns([sessionTemplates.id])
+      ..where(sessionTemplates.planId.equals(planId));
+    final rows = await query.get();
+    return [for (final row in rows) row.read(sessionTemplates.id)!];
+  }
 
   // --- weekly slots ------------------------------------------------------
 
@@ -129,17 +151,15 @@ class PlanningDao extends DatabaseAccessor<AppDatabase>
 
   SimpleSelectStatement<$TrainingBlocksTable, TrainingBlockRow> _blocksOf(
     String planId,
-  ) =>
-      selectLive(trainingBlocks)
-        ..where((t) => t.planId.equals(planId))
-        ..orderBy([(t) => OrderingTerm(expression: t.startDate)]);
+  ) => selectLive(trainingBlocks)
+    ..where((t) => t.planId.equals(planId))
+    ..orderBy([(t) => OrderingTerm(expression: t.startDate)]);
 
   /// The ids of every block of a plan, deleted ones included: a cascade
   /// reaches rows whose block was retired earlier.
   JoinedSelectStatement<$TrainingBlocksTable, TrainingBlockRow> _blockIdsOf(
     String planId,
-  ) =>
-      selectOnly(trainingBlocks)
-        ..addColumns([trainingBlocks.id])
-        ..where(trainingBlocks.planId.equals(planId));
+  ) => selectOnly(trainingBlocks)
+    ..addColumns([trainingBlocks.id])
+    ..where(trainingBlocks.planId.equals(planId));
 }
