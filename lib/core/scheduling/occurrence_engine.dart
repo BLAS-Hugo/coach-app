@@ -14,7 +14,7 @@ class SchedulingInput {
     this.blocksByPlan = const {},
     this.slotsByBlock = const {},
     this.overridesByBlock = const {},
-    this.exceptionsByBlock = const {},
+    this.movesByBlock = const {},
     this.logs = const [],
   });
 
@@ -29,8 +29,8 @@ class SchedulingInput {
   /// Week overrides keyed by their block's id.
   final Map<String, List<WeekOverride>> overridesByBlock;
 
-  /// Single-date exceptions keyed by their block's id.
-  final Map<String, List<OccurrenceException>> exceptionsByBlock;
+  /// Single-date reschedules keyed by their block's id.
+  final Map<String, List<OccurrenceMove>> movesByBlock;
 
   /// Every log that could fall in the requested window.
   final List<SessionLog> logs;
@@ -90,8 +90,8 @@ abstract final class OccurrenceEngine {
     // A moved occurrence can land inside the window from a source date
     // outside it, and one scheduled inside can move out. Widen the walk by
     // the largest move distance so neither is lost.
-    final exceptions = input.exceptionsByBlock[block.id] ?? const [];
-    final walk = _walkRange(range, block, exceptions);
+    final moves = input.movesByBlock[block.id] ?? const [];
+    final walk = _walkRange(range, block, moves);
     if (walk == null) return;
 
     final slots = input.slotsByBlock[block.id] ?? const [];
@@ -99,7 +99,7 @@ abstract final class OccurrenceEngine {
     final slotByWeekday = {for (final slot in slots) slot.weekday: slot};
 
     final overrides = input.overridesByBlock[block.id] ?? const [];
-    final exceptionByDate = {for (final e in exceptions) e.date: e};
+    final moveByDate = {for (final move in moves) move.date: move};
 
     for (final date in walk.days) {
       if (!block.covers(date)) continue;
@@ -123,17 +123,9 @@ abstract final class OccurrenceEngine {
           break;
       }
 
-      final exception = exceptionByDate[date];
-      var effectiveDate = date;
-      var skippedByUser = false;
-      switch (exception?.kind) {
-        case OccurrenceExceptionKind.skip:
-          skippedByUser = true;
-        case OccurrenceExceptionKind.move:
-          effectiveDate = exception!.targetDate ?? date;
-        case null:
-          break;
-      }
+      // A skip is not handled here: it is a log with status `skipped`, and
+      // the status resolution below picks it up like any other log.
+      final effectiveDate = moveByDate[date]?.targetDate ?? date;
 
       // A move can carry the occurrence out of the requested window.
       if (!range.contains(effectiveDate)) continue;
@@ -152,7 +144,6 @@ abstract final class OccurrenceEngine {
             log: log,
             date: effectiveDate,
             today: input.today,
-            skippedByUser: skippedByUser,
           ),
         ),
       );
@@ -164,16 +155,14 @@ abstract final class OccurrenceEngine {
   static DateRange? _walkRange(
     DateRange range,
     TrainingBlock block,
-    List<OccurrenceException> exceptions,
+    List<OccurrenceMove> moves,
   ) {
     var start = range.start;
     var end = range.end;
-    for (final exception in exceptions) {
-      final target = exception.targetDate;
-      if (target == null) continue;
-      if (range.contains(target)) {
-        if (exception.date < start) start = exception.date;
-        if (exception.date > end) end = exception.date;
+    for (final move in moves) {
+      if (range.contains(move.targetDate)) {
+        if (move.date < start) start = move.date;
+        if (move.date > end) end = move.date;
       }
     }
 
@@ -210,7 +199,6 @@ abstract final class OccurrenceEngine {
     required SessionLog? log,
     required DateOnly date,
     required DateOnly today,
-    required bool skippedByUser,
   }) {
     // A log outranks everything: it is what actually happened.
     if (log != null) {
@@ -220,7 +208,6 @@ abstract final class OccurrenceEngine {
         SessionStatus.skipped => OccurrenceStatus.skipped,
       };
     }
-    if (skippedByUser) return OccurrenceStatus.skipped;
     // `missed` is derived, never stored: a past date with nothing logged.
     return date.isBefore(today)
         ? OccurrenceStatus.missed

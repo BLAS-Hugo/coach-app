@@ -144,9 +144,14 @@ week_overrides                        -- deloads, per-week swaps
   replacementSessionTemplateId? → session_templates,
   loadMultiplier? (real)
 
-occurrence_exceptions                 -- single-occurrence skip / move
-  id, blockId → training_blocks, date, kind (skip|move), targetDate?
+occurrence_moves                      -- single-occurrence reschedule
+  id, blockId → training_blocks, date, targetDate
 ```
+
+**There is exactly one way to express a skip**, and it is a `session_log` with status
+`skipped` (PRD §5.2). This table therefore carries moves only — an earlier draft gave it
+a `kind (skip|move)` column, which made a skipped occurrence representable two ways and
+would have been a standing source of disagreement between the two paths.
 
 **A block's end date is derived**, not stored, unless it was stopped early:
 `endDate ?? startDate + durationWeeks × 7 − 1 day`, and null/null means ongoing.
@@ -163,8 +168,8 @@ session_logs
   id, planId → plans, blockId? → training_blocks (nullable soft ref),
   sessionTemplateId? (nullable soft ref, survives template deletion),
   date, status (inProgress|completed|skipped),
-  startedAt, completedAt?, totalDurationSeconds?, notes?,
-  plannedSnapshot (TEXT, JSON)        -- full planned content at start time
+  startedAt?, completedAt?, totalDurationSeconds?, notes?,
+  plannedSnapshot (TEXT, JSON)        -- full planned content when materialised
 
 logged_exercises
   id, sessionLogId → session_logs, exerciseId → exercises,
@@ -186,6 +191,10 @@ app_settings                          -- single row
   defaultRestSeconds, audioCues (bool), vibration (bool), themeMode
 ```
 
+`startedAt` is nullable because a **skipped** log was never started: skipping
+materialises the snapshot without performing anything. A log with a null `startedAt` and
+status other than `skipped` is invalid.
+
 `plannedSnapshot` is deliberately redundant with the `logged_*` tables. The relational rows
 are what history queries read; the JSON blob is the escape hatch for rendering a historical
 session exactly as it was planned, including structure the relational tables flatten
@@ -206,7 +215,7 @@ Drift `MigrationStrategy` with explicit stepwise migrations from schema v1. Use
 
 Plain `freezed` classes mirroring the concepts in PRD §3: `Plan`, `TrainingBlock`,
 `SessionTemplate`, `WeeklySlot`, `ExerciseEntry`, `PlannedSet`, `EnduranceBlock`,
-`RepeatGroup`, `WeekOverride`, `OccurrenceException`, `SessionOccurrence`, `SessionLog`,
+`RepeatGroup`, `WeekOverride`, `OccurrenceMove`, `SessionOccurrence`, `SessionLog`,
 `LoggedSet`, `LoggedBlock`, `Exercise`.
 
 `TrainingBlock` derives what the schema does not store:
@@ -247,7 +256,7 @@ List<SessionOccurrence> computeOccurrences({
   required Map<String, List<TrainingBlock>> blocksByPlan,
   required Map<String, List<WeeklySlot>> slotsByBlock,
   required Map<String, List<WeekOverride>> overridesByBlock,
-  required Map<String, List<OccurrenceException>> exceptionsByBlock,
+  required Map<String, List<OccurrenceMove>> movesByBlock,
   required Map<String, SessionLog> logsByKey,
   required DateRange range,
   required DateTime today,
@@ -262,10 +271,9 @@ Algorithm per plan, per block, per date in range:
 3. Look up the `weekly_slot` for `date.weekday`. No slot → rest day, emit nothing.
 4. Apply any `week_override` matching `(weekIndex, weekday)`: remove → emit nothing;
    replace → swap the template id; adjustLoad → carry `loadMultiplier`.
-5. Apply any `occurrence_exception` for that exact date: skip → status `skipped`;
-   move → emit at `targetDate` instead.
-6. Resolve status: a log exists → its status; else date < today → `missed`; else
-   `scheduled`.
+5. Apply any `occurrence_move` for that exact date: emit at `targetDate` instead.
+6. Resolve status: a log exists → its status (which is how a skip surfaces); else
+   date < today → `missed`; else `scheduled`.
 
 Blocks within a plan cannot overlap (PRD §4.1), so step 1 selects at most one block
 per plan per date and the loop stays O(dates × plans).

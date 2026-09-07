@@ -233,6 +233,11 @@ Read-only-ish view of what a session contains, reachable from any date in the st
   no start action.
 - Secondary actions: mark skipped, move this occurrence to another date, jump to the plan
   editor.
+- **Marking an occurrence skipped writes a session log**, with status `skipped`, no
+  performed content, and the same frozen `plannedSnapshot` that starting a session writes.
+  Declining a session is a training decision, and the history is worth as much as the
+  history of one performed — the handoff makes the same point about screen 5a. It is also
+  what keeps a skipped day accurate after a later plan edit (§5.4).
 - If a log already exists for this date, the view shows the logged actuals instead of the
   plan, with planned values shown alongside for comparison.
 
@@ -295,10 +300,23 @@ a count.
 
 - Changes apply to **future occurrences only**, from today forward.
 - Occurrences already started or completed are untouched (they are snapshots).
-- Past occurrences that were never started are also untouched — they remain rendered from
-  the plan as it was, using the plan's own version history where necessary, or are simply
-  shown as missed without detail. (Simplest acceptable behaviour: past unstarted
-  occurrences render from the current template; this is a known, accepted imprecision.)
+- Occurrences the user explicitly **skipped** are untouched too: skipping writes a
+  snapshot, exactly as starting does (§5.2).
+- Past occurrences that were **never touched at all** have no snapshot, so there is nothing
+  to render them from but the template as it stands today. They do exactly that, and the
+  detail view captions them *"séance telle qu'elle est prévue aujourd'hui"*.
+
+  **This is a disclosed imprecision, not a silent one**, and it is deliberate. Making it
+  exact means versioning every template so occurrences resolve against the version live on
+  their date — bitemporal modelling across the whole planning side, which is wildly
+  disproportionate to the symptom. Eagerly materialising snapshots for future dates was
+  also rejected: it turns every plan edit into a bulk write and contradicts occurrences
+  being computed rather than stored (§3), which the scheduling engine depends on.
+
+  Note how narrow the residue is. Weekly templates belong to a *training block*, so
+  starting the next block leaves the previous block's template untouched and its history
+  exact. Only edits to a block already underway can misrepresent anything, only for days
+  inside that block, and only for days the user never acted on.
 - Shortening a training block, or stopping it early, makes occurrences after its new end
   date disappear from the calendar. Existing logs remain.
 

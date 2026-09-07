@@ -46,7 +46,7 @@ SchedulingInput _input({
   Map<String, List<TrainingBlock>>? blocksByPlan,
   Map<String, List<WeeklySlot>>? slotsByBlock,
   Map<String, List<WeekOverride>> overridesByBlock = const {},
-  Map<String, List<OccurrenceException>> exceptionsByBlock = const {},
+  Map<String, List<OccurrenceMove>> movesByBlock = const {},
   List<SessionLog> logs = const [],
   DateOnly? today,
 }) => SchedulingInput(
@@ -62,7 +62,7 @@ SchedulingInput _input({
         'block-1': [_slot(weekday: DateTime.monday)],
       },
   overridesByBlock: overridesByBlock,
-  exceptionsByBlock: exceptionsByBlock,
+  movesByBlock: movesByBlock,
   logs: logs,
   today: today ?? monday,
 );
@@ -451,78 +451,54 @@ void main() {
       });
     });
 
-    group('occurrence exceptions', () {
-      OccurrenceException exception({
-        required OccurrenceExceptionKind kind,
-        DateOnly? date,
-        DateOnly? targetDate,
-      }) => OccurrenceException(
-        id: 'exc',
-        blockId: 'block-1',
-        date: date ?? monday.addWeeks(1),
-        kind: kind,
-        targetDate: targetDate,
-      );
+    group('occurrence moves', () {
+      OccurrenceMove move({DateOnly? date, DateOnly? targetDate}) =>
+          OccurrenceMove(
+            id: 'mv',
+            blockId: 'block-1',
+            date: date ?? monday.addWeeks(1),
+            targetDate: targetDate ?? monday.addWeeks(1).addDays(2),
+          );
 
-      test('skip marks that occurrence skipped but still emits it', () {
-        final result = _run(
-          _input(
-            exceptionsByBlock: {
-              'block-1': [exception(kind: OccurrenceExceptionKind.skip)],
-            },
-            today: monday,
-          ),
-          DateRange.days(monday, 28),
-        );
-        expect(result.length, 4);
-        expect(result[1].status, OccurrenceStatus.skipped);
-        expect(result[0].status, OccurrenceStatus.scheduled);
-      });
-
-      test('move emits the occurrence at the target date instead', () {
+      test('emits the occurrence at the target date instead', () {
         final moved = monday.addWeeks(1).addDays(2);
         final result = _run(
           _input(
-            exceptionsByBlock: {
+            movesByBlock: {
+              'block-1': [move()],
+            },
+          ),
+          DateRange.days(monday, 28),
+        );
+        expect(result.map((o) => o.date), contains(moved));
+        expect(result.map((o) => o.date), isNot(contains(monday.addWeeks(1))));
+        expect(result.length, 4);
+      });
+
+      test('a move for a date with no occurrence changes nothing', () {
+        final result = _run(
+          _input(
+            movesByBlock: {
               'block-1': [
-                exception(
-                  kind: OccurrenceExceptionKind.move,
-                  targetDate: moved,
+                move(
+                  date: monday.addDays(1),
+                  targetDate: monday.addDays(3),
                 ),
               ],
             },
           ),
           DateRange.days(monday, 28),
         );
-        expect(result.map((o) => o.date), contains(moved));
-        expect(
-          result.map((o) => o.date),
-          isNot(contains(monday.addWeeks(1))),
-        );
-      });
-
-      test('move with a null target leaves the date alone', () {
-        final result = _run(
-          _input(
-            exceptionsByBlock: {
-              'block-1': [exception(kind: OccurrenceExceptionKind.move)],
-            },
-          ),
-          DateRange.days(monday, 28),
-        );
-        expect(result.map((o) => o.date), contains(monday.addWeeks(1)));
+        expect(result.length, 4);
+        expect(result.map((o) => o.date), isNot(contains(monday.addDays(3))));
       });
 
       test('an occurrence moved out of the window disappears from it', () {
         final result = _run(
           _input(
-            exceptionsByBlock: {
+            movesByBlock: {
               'block-1': [
-                exception(
-                  date: monday,
-                  kind: OccurrenceExceptionKind.move,
-                  targetDate: monday.addWeeks(3),
-                ),
+                move(date: monday, targetDate: monday.addWeeks(3)),
               ],
             },
           ),
@@ -532,24 +508,99 @@ void main() {
       });
 
       test('an occurrence moved into the window appears in it', () {
-        // Source Monday is outside the window; its target is inside.
+        // The source Monday sits outside the window; its target is inside.
         final target = monday.addWeeks(1).addDays(2);
         final result = _run(
           _input(
-            exceptionsByBlock: {
-              'block-1': [
-                exception(
-                  date: monday.addWeeks(1),
-                  kind: OccurrenceExceptionKind.move,
-                  targetDate: target,
-                ),
-              ],
+            movesByBlock: {
+              'block-1': [move(date: monday.addWeeks(1), targetDate: target)],
             },
           ),
           DateRange(start: target.addDays(-1), end: target.addDays(1)),
         );
         expect(result.length, 1);
         expect(result.single.date, target);
+      });
+    });
+
+    group('skipping', () {
+      // A skip is a log, never a separate marker: skipping freezes a
+      // snapshot exactly as starting does (PRD §5.2).
+      test('a skipped log makes the occurrence skipped', () {
+        final result = _run(
+          _input(
+            logs: [
+              SessionLog(
+                id: 'log-1',
+                planId: 'plan-s',
+                date: monday,
+                status: SessionStatus.skipped,
+              ),
+            ],
+            today: monday,
+          ),
+          DateRange.days(monday, 7),
+        );
+        expect(result.single.status, OccurrenceStatus.skipped);
+        expect(result.single.sessionLogId, 'log-1');
+      });
+
+      test('a skipped log has no start time', () {
+        final log = SessionLog(
+          id: 'log-1',
+          planId: 'plan-s',
+          date: monday,
+          status: SessionStatus.skipped,
+        );
+        expect(log.startedAt, isNull);
+        expect(log.completedAt, isNull);
+      });
+
+      test('a skip in the past is skipped, not missed', () {
+        final result = _run(
+          _input(
+            logs: [
+              SessionLog(
+                id: 'log-1',
+                planId: 'plan-s',
+                date: monday,
+                status: SessionStatus.skipped,
+              ),
+            ],
+            today: monday.addWeeks(2),
+          ),
+          DateRange.days(monday, 7),
+        );
+        expect(result.single.status, OccurrenceStatus.skipped);
+      });
+
+      test('a skipped occurrence follows a move to its new date', () {
+        final target = monday.addDays(2);
+        final result = _run(
+          _input(
+            movesByBlock: {
+              'block-1': [
+                OccurrenceMove(
+                  id: 'mv',
+                  blockId: 'block-1',
+                  date: monday,
+                  targetDate: target,
+                ),
+              ],
+            },
+            logs: [
+              SessionLog(
+                id: 'log-1',
+                planId: 'plan-s',
+                date: target,
+                status: SessionStatus.skipped,
+              ),
+            ],
+          ),
+          DateRange.days(monday, 7),
+        );
+        expect(result.single.date, target);
+        expect(result.single.status, OccurrenceStatus.skipped);
       });
     });
 
@@ -611,26 +662,6 @@ void main() {
         }
       });
 
-      test('a log beats a user skip exception', () {
-        final result = _run(
-          _input(
-            exceptionsByBlock: {
-              'block-1': [
-                OccurrenceException(
-                  id: 'exc',
-                  blockId: 'block-1',
-                  date: monday,
-                  kind: OccurrenceExceptionKind.skip,
-                ),
-              ],
-            },
-            logs: [log(status: SessionStatus.completed)],
-          ),
-          DateRange.days(monday, 7),
-        );
-        expect(result.single.status, OccurrenceStatus.completed);
-      });
-
       test('a log for another plan does not attach', () {
         final result = _run(
           _input(
@@ -655,13 +686,12 @@ void main() {
         final target = monday.addDays(2);
         final result = _run(
           _input(
-            exceptionsByBlock: {
+            movesByBlock: {
               'block-1': [
-                OccurrenceException(
-                  id: 'exc',
+                OccurrenceMove(
+                  id: 'mv',
                   blockId: 'block-1',
                   date: monday,
-                  kind: OccurrenceExceptionKind.move,
                   targetDate: target,
                 ),
               ],

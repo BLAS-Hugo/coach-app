@@ -22,6 +22,12 @@ enum SessionStatus {
 /// what lets a block be edited mid-flight without rewriting history
 /// (PRD G4), and it is the source of the `PRÉVU` column on design screen 2c.
 ///
+/// Skipping an occurrence writes one of these too, with status
+/// [SessionStatus.skipped], a null [startedAt] and no performed content.
+/// Declining a session is a training decision worth as much history as
+/// performing one, and it is what keeps a skipped day accurate after a later
+/// plan edit (PRD §5.4).
+///
 /// [sessionTemplateId] and [blockId] are deliberately nullable soft
 /// references: both survive their target being soft-deleted, because a log
 /// must stay readable in history forever.
@@ -32,9 +38,12 @@ abstract class SessionLog with _$SessionLog {
     required String planId,
     required DateOnly date,
     required SessionStatus status,
-    required DateTime startedAt,
     String? blockId,
     String? sessionTemplateId,
+
+    /// Null for a skipped log: skipping materialises the snapshot without
+    /// performing anything. Non-null for every other status.
+    DateTime? startedAt,
     DateTime? completedAt,
     int? totalDurationSeconds,
     String? notes,
