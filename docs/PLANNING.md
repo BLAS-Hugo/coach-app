@@ -206,7 +206,9 @@ the "Z4" label two years later, old logs must still read "Z4".
 ### Migrations
 
 Drift `MigrationStrategy` with explicit stepwise migrations from schema v1. Use
-`drift_dev`'s schema dumps plus `verifySelfIntegrity` in tests from day one. Do not ship a
+`drift_dev`'s schema dumps (`dart run drift_dev schema dump`, committed under
+`drift_schemas/`) plus `validateDatabaseSchema()` from
+`package:drift_dev/api/migrations_native.dart` in tests from day one. Do not ship a
 `deleteAndRecreate` fallback — there is no cloud backup to restore from.
 
 ---
@@ -421,7 +423,7 @@ view.
 
 ### M10 — Hardening and release · ~3–4 days
 
-Migration tests with `verifySelfIntegrity`, integration test of the full daily flow, unit
+Migration tests with `validateDatabaseSchema()`, integration test of the full daily flow, unit
 conversion correctness, empty and error states, app icons and splash, release signing for
 both platforms, TestFlight/internal track setup.
 
@@ -459,7 +461,7 @@ deferred in PRD §7 appears in any milestone.
 | Unit conversion, 1RM, volume | Unit tests with known values. |
 | Repositories | Drift in-memory database, real SQL, no mocks. |
 | Blocs | `bloc_test`, with fake repositories. |
-| Migrations | `drift_dev` schema dumps, `verifySelfIntegrity`, one test per version step. |
+| Migrations | `drift_dev` schema dumps, `validateDatabaseSchema()`, one test per version step. |
 | Flows | `integration_test`: create plan → see it on the day view → run it → see it in history. |
 | Timer | Manual on real devices, both platforms, screen locked. Not automatable; budget for it. |
 

@@ -62,8 +62,11 @@ jobs:
         flutter gen-l10n
         dart run build_runner build --delete-conflicting-outputs
       # Hold hand-written code at 100%; generated output and flavor
-      # entrypoints stay out of the denominator.
-      coverage_excludes: "lib/l10n/gen/** lib/main_*.dart lib/bootstrap.dart **/*.g.dart **/*.freezed.dart"
+      # entrypoints stay out of the denominator. The drift table files are
+      # excluded for the same reason as generated code: their column getters
+      # are a build-time DSL that drift_dev reads, never runtime code, so the
+      # generated database is what the tests actually exercise.
+      coverage_excludes: "lib/l10n/gen/** lib/main_*.dart lib/bootstrap.dart lib/core/database/tables/** lib/core/database/syncable_table.dart **/*.g.dart **/*.freezed.dart"
 
   # Only on the release path. A feature PR into develop gets the fast gates
   # (analyze, test, lints, spell check); paying six minutes of Gradle and a
