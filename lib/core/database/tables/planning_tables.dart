@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 
 /// A named movement with a stable identity, so history aggregates across
 /// plans and blocks (PRD §3).
+@DataClassName('ExerciseRow')
 class Exercises extends Table with SyncableTable {
   TextColumn get name => text()();
 
@@ -14,6 +15,7 @@ class Exercises extends Table with SyncableTable {
 }
 
 /// A training program. Carries no dates — its blocks do.
+@DataClassName('PlanRow')
 class Plans extends Table with SyncableTable {
   TextColumn get name => text()();
 
@@ -28,6 +30,7 @@ class Plans extends Table with SyncableTable {
 /// end follows from [startDate] and [durationWeeks]. Both null means the
 /// block is ongoing. The derivation lives in the domain model, not here, so
 /// there is one implementation of it.
+@DataClassName('TrainingBlockRow')
 class TrainingBlocks extends Table with SyncableTable {
   TextColumn get planId => text().references(Plans, #id)();
 
@@ -49,6 +52,7 @@ class TrainingBlocks extends Table with SyncableTable {
 }
 
 /// A named workout belonging to a plan, reusable across its blocks.
+@DataClassName('SessionTemplateRow')
 class SessionTemplates extends Table with SyncableTable {
   TextColumn get planId => text().references(Plans, #id)();
 
@@ -68,6 +72,7 @@ class SessionTemplates extends Table with SyncableTable {
   ON weekly_slots (block_id, weekday)
   WHERE deleted_at IS NULL;
 ''')
+@DataClassName('WeeklySlotRow')
 class WeeklySlots extends Table with SyncableTable {
   TextColumn get blockId => text().references(TrainingBlocks, #id)();
 
@@ -83,6 +88,7 @@ class WeeklySlots extends Table with SyncableTable {
 ///
 /// [supersetGroup] models supersets as groups-of-one by default (PRD §4.4),
 /// so the runner has round-based logic before M7 adds the grouping UI.
+@DataClassName('ExerciseEntryRow')
 class ExerciseEntries extends Table with SyncableTable {
   TextColumn get sessionTemplateId =>
       text().references(SessionTemplates, #id)();
@@ -100,6 +106,7 @@ class ExerciseEntries extends Table with SyncableTable {
 
 /// One planned work set. [kind] decides which of the value columns mean
 /// anything.
+@DataClassName('PlannedSetRow')
 class PlannedSets extends Table with SyncableTable {
   TextColumn get exerciseEntryId => text().references(ExerciseEntries, #id)();
 
@@ -120,6 +127,7 @@ class PlannedSets extends Table with SyncableTable {
 
 /// An ordered subset of endurance blocks repeated [repeatCount] times, so
 /// "6 × (400 m / 90 s)" is one group of two blocks rather than twelve rows.
+@DataClassName('RepeatGroupRow')
 class RepeatGroups extends Table with SyncableTable {
   TextColumn get sessionTemplateId =>
       text().references(SessionTemplates, #id)();
@@ -130,6 +138,7 @@ class RepeatGroups extends Table with SyncableTable {
 }
 
 /// A user-managed intensity label, e.g. `Z4`.
+@DataClassName('IntensityLabelRow')
 class IntensityLabels extends Table with SyncableTable {
   TextColumn get label => text()();
 
@@ -139,6 +148,7 @@ class IntensityLabels extends Table with SyncableTable {
 /// One segment of an endurance session: warmup, work, recovery or cooldown.
 ///
 /// Not to be confused with a [TrainingBlocks] row, which is a mesocycle.
+@DataClassName('EnduranceBlockRow')
 class EnduranceBlocks extends Table with SyncableTable {
   TextColumn get sessionTemplateId =>
       text().references(SessionTemplates, #id)();

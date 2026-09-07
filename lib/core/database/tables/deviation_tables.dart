@@ -5,6 +5,7 @@ import 'package:coach_app/core/models/models.dart';
 import 'package:drift/drift.dart';
 
 /// A per-week deviation from a block's weekly template: a deload or a swap.
+@DataClassName('WeekOverrideRow')
 class WeekOverrides extends Table with SyncableTable {
   TextColumn get blockId => text().references(TrainingBlocks, #id)();
 
@@ -29,6 +30,7 @@ class WeekOverrides extends Table with SyncableTable {
 /// status `skipped`, because skipping freezes a snapshot exactly as
 /// starting does (PRD §5.2). One representation means the two paths can
 /// never disagree.
+@DataClassName('OccurrenceMoveRow')
 class OccurrenceMoves extends Table with SyncableTable {
   TextColumn get blockId => text().references(TrainingBlocks, #id)();
 

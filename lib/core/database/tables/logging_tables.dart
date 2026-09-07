@@ -13,6 +13,7 @@ import 'package:drift/drift.dart';
 ///
 /// [startedAt] is null exactly when [status] is `skipped`: skipping
 /// materialises the snapshot without performing anything.
+@DataClassName('SessionLogRow')
 class SessionLogs extends Table with SyncableTable {
   TextColumn get planId => text().references(Plans, #id)();
 
@@ -42,6 +43,7 @@ class SessionLogs extends Table with SyncableTable {
 }
 
 /// One exercise as performed, inside a session log.
+@DataClassName('LoggedExerciseRow')
 class LoggedExercises extends Table with SyncableTable {
   TextColumn get sessionLogId => text().references(SessionLogs, #id)();
 
@@ -61,6 +63,7 @@ class LoggedExercises extends Table with SyncableTable {
 /// The planned values are copied in rather than joined to, because the
 /// planned set they came from may be edited or soft-deleted later. This is
 /// what makes the `PRÉVU` / `RÉALISÉ` comparison on design screen 2c stable.
+@DataClassName('LoggedSetRow')
 class LoggedSets extends Table with SyncableTable {
   TextColumn get loggedExerciseId => text().references(LoggedExercises, #id)();
 
@@ -91,6 +94,7 @@ class LoggedSets extends Table with SyncableTable {
 ///
 /// [roundIndex] flattens repeat groups: round 2 of a `6 × 400 m` group is
 /// its own row.
+@DataClassName('LoggedBlockRow')
 class LoggedBlocks extends Table with SyncableTable {
   TextColumn get sessionLogId => text().references(SessionLogs, #id)();
 
@@ -116,6 +120,7 @@ class LoggedBlocks extends Table with SyncableTable {
 }
 
 /// User preferences. Exactly one row.
+@DataClassName('AppSettingsRow')
 class AppSettingsRows extends Table with SyncableTable {
   IntColumn get unitWeight => intEnum<WeightUnit>()();
 
