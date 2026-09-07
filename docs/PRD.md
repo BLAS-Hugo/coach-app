@@ -150,7 +150,10 @@ A planned set has a **measurement kind** which determines which fields are meani
 | `weightReps` | weight, reps | 80 kg × 5 |
 | `reps` | reps | 12 pull-ups |
 | `duration` | seconds | 45 s plank |
-| `weightDuration` | weight, seconds | 20 kg × 40 s farmer's walk |
+
+`weightDuration` (weighted carries and planks) was specified and then **cut by
+decision on 2026-08-25**: it widens the notation column everywhere it appears, and the
+design has no room for it. Adding a fourth kind later is additive, not a migration.
 
 Every planned set may additionally carry an optional **target RPE or RIR** value. The user
 chooses RPE or RIR globally in settings; only one scale is shown.
@@ -315,6 +318,9 @@ adjustment (e.g. "−20 % on all working weights") for a deload.
 - **Per-exercise view:** every logged set for a given exercise across all plans, newest
   first, plus a chart of a chosen metric over time. Metrics: top set weight, estimated 1RM
   (Epley), total volume (Σ weight × reps) per session.
+- The design handoff argues against showing an estimated 1RM at all, on the grounds that
+  only a weight actually lifted is real. **Overruled by decision on 2026-08-25**: Epley
+  stays. It is a derived metric, so it touches no table.
 - **Endurance view:** per-session totals over time — total duration, total distance where
   entered, and volume at each intensity label.
 - **Plan-level view:** completion rate (sessions completed vs scheduled) for the current

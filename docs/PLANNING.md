@@ -114,7 +114,7 @@ exercise_entries
 
 planned_sets
   id, exerciseEntryId → exercise_entries, orderIndex,
-  kind (weightReps|reps|duration|weightDuration),
+  kind (weightReps|reps|duration),
   weight? (real), reps? (int), durationSeconds? (int), targetIntensity? (real)
 
 -- endurance content
