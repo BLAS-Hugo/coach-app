@@ -34,11 +34,18 @@ flutter analyze
 # Bloc-specific lints (bloc_lint package, stricter than the analyzer rules)
 dart run bloc_tools:bloc lint .
 
-# All tests with coverage (Very Good CLI test runner)
+# All tests with coverage (Very Good CLI test runner). `very_good.yaml` holds
+# the exclusion list and the 100% floor, so this fails locally exactly where
+# CI would — no flags needed, and no need to trust the raw lcov, which counts
+# generated code and reads about 35%.
 very_good test --coverage --test-randomize-ordering-seed random
 
 # Single test file
-flutter test test/counter/cubit/counter_cubit_test.dart
+flutter test test/core/scheduling/occurrence_engine_test.dart
+
+# What the last run actually came to, and which files hold the gaps. The CLI
+# only prints a percentage when coverage is short; this prints it either way.
+tool/coverage.sh
 
 # Coverage report (requires lcov)
 genhtml coverage/lcov.info -o coverage/

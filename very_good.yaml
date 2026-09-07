@@ -1,0 +1,33 @@
+# Very Good CLI settings, persisted so that a local run measures exactly what
+# CI measures. `very_good test` reads this with no flags, which is the point:
+# the raw lcov counts generated code and reads about 35%, and a number nobody
+# can act on is worse than no number.
+#
+# The coverage-excludes job in .github/workflows/main.yaml and
+# tool/coverage.sh both parse the exclude_coverage line below, so keep it on
+# one double-quoted line.
+test:
+  # Implies coverage collection; no need to also pass --coverage.
+  min_coverage: 100
+  show_uncovered: true
+
+  # What stays out of the denominator, and why:
+  #
+  #   **/*.g.dart, **/*.freezed.dart, lib/l10n/gen/**
+  #     Generated. build_runner owns them, and a test of them tests drift,
+  #     freezed or json_serializable rather than this app. app_database.g.dart
+  #     alone is 8.5k lines and would drown every hand-written file.
+  #
+  #   lib/main_*.dart, lib/bootstrap.dart
+  #     Entrypoints. They call runApp, install a BlocObserver and open the
+  #     device's database, none of which survives a widget test.
+  #
+  #   lib/core/database/tables/**, lib/core/database/syncable_table.dart
+  #     Drift's build-time DSL. Those column getters are read by drift_dev to
+  #     generate the schema and never run; the generated database is what the
+  #     tests actually exercise.
+  #
+  # Hand-written code is held at 100%, which only means something if this list
+  # stays honest: every glob names code no test could meaningfully reach,
+  # never code that is merely awkward to test.
+  exclude_coverage: "**/*.g.dart **/*.freezed.dart lib/l10n/gen/** lib/main_*.dart lib/bootstrap.dart lib/core/database/tables/** lib/core/database/syncable_table.dart"
