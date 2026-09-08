@@ -197,10 +197,9 @@ void main() {
         ),
       );
 
-      expect(
-        (await repository.watchOverrides('b1').first).map((o) => o.id),
-        ['o2'],
-      );
+      expect((await repository.watchOverrides('b1').first).map((o) => o.id), [
+        'o2',
+      ]);
       expect(
         (await repository.watchOccurrences(week).first).single.loadMultiplier,
         0.8,

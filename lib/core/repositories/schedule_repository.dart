@@ -129,10 +129,8 @@ class DriftScheduleRepository implements ScheduleRepository {
   }
 
   @override
-  Future<void> cancelMove({
-    required String blockId,
-    required DateOnly date,
-  }) => _dao.clearMove(blockId: blockId, date: date);
+  Future<void> cancelMove({required String blockId, required DateOnly date}) =>
+      _dao.clearMove(blockId: blockId, date: date);
 
   List<SessionOccurrence> _compute(
     SchedulingSources sources,
@@ -162,10 +160,7 @@ class DriftScheduleRepository implements ScheduleRepository {
     range: range,
   );
 
-  Map<String, List<T>> _groupBy<T>(
-    Iterable<T> items,
-    String Function(T) key,
-  ) {
+  Map<String, List<T>> _groupBy<T>(Iterable<T> items, String Function(T) key) {
     final grouped = <String, List<T>>{};
     for (final item in items) {
       (grouped[key(item)] ??= <T>[]).add(item);

@@ -8,9 +8,7 @@ part 'planning_dao.g.dart';
 
 /// The planning skeleton: plans, their training blocks, the session
 /// templates they own, and each block's weekly template.
-@DriftAccessor(
-  tables: [Plans, TrainingBlocks, SessionTemplates, WeeklySlots],
-)
+@DriftAccessor(tables: [Plans, TrainingBlocks, SessionTemplates, WeeklySlots])
 class PlanningDao extends DatabaseAccessor<AppDatabase>
     with _$PlanningDaoMixin, SyncableDao {
   PlanningDao(super.attachedDatabase, {this.now = DateTime.now});

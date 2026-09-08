@@ -7,10 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// 2026-08-17 is a Monday, which keeps the weekday arithmetic readable.
 final monday = DateOnly(2026, 8, 17);
 
-Plan _plan({
-  String id = 'plan-s',
-  PlanType type = PlanType.strength,
-}) => Plan(id: id, name: 'Upper/Lower', type: type);
+Plan _plan({String id = 'plan-s', PlanType type = PlanType.strength}) =>
+    Plan(id: id, name: 'Upper/Lower', type: type);
 
 TrainingBlock _block({
   String id = 'block-1',
@@ -76,10 +74,12 @@ void main() {
       test('emits one occurrence per matching weekday', () {
         final result = _run(_input(), DateRange.days(monday, 28));
         expect(result.length, 4);
-        expect(
-          result.map((o) => o.date).toList(),
-          [monday, monday.addWeeks(1), monday.addWeeks(2), monday.addWeeks(3)],
-        );
+        expect(result.map((o) => o.date).toList(), [
+          monday,
+          monday.addWeeks(1),
+          monday.addWeeks(2),
+          monday.addWeeks(3),
+        ]);
         expect(result.every((o) => o.sessionTemplateId == 'tpl-upper'), isTrue);
       });
 
@@ -221,10 +221,7 @@ void main() {
           _input(
             blocksByPlan: {
               'plan-s': [
-                _block(
-                  startDate: monday.addWeeks(10),
-                  durationWeeks: null,
-                ),
+                _block(startDate: monday.addWeeks(10), durationWeeks: null),
               ],
             },
           ),
@@ -268,10 +265,7 @@ void main() {
           DateRange.days(thursday, 21),
         );
         expect(result.first.date, thursday.addDays(4));
-        expect(
-          _block(startDate: thursday).weekIndexOf(result.first.date),
-          0,
-        );
+        expect(_block(startDate: thursday).weekIndexOf(result.first.date), 0);
       });
 
       test('a week index before the block start is negative, not zero', () {
@@ -480,10 +474,7 @@ void main() {
           _input(
             movesByBlock: {
               'block-1': [
-                move(
-                  date: monday.addDays(1),
-                  targetDate: monday.addDays(3),
-                ),
+                move(date: monday.addDays(1), targetDate: monday.addDays(3)),
               ],
             },
           ),
@@ -497,9 +488,7 @@ void main() {
         final result = _run(
           _input(
             movesByBlock: {
-              'block-1': [
-                move(date: monday, targetDate: monday.addWeeks(3)),
-              ],
+              'block-1': [move(date: monday, targetDate: monday.addWeeks(3))],
             },
           ),
           DateRange.days(monday, 7),
@@ -618,19 +607,13 @@ void main() {
       );
 
       test('a future date with no log is scheduled', () {
-        final result = _run(
-          _input(today: monday),
-          DateRange.days(monday, 28),
-        );
+        final result = _run(_input(today: monday), DateRange.days(monday, 28));
         expect(result.first.status, OccurrenceStatus.scheduled);
         expect(result.first.sessionLogId, isNull);
       });
 
       test('today with no log is scheduled, not missed', () {
-        final result = _run(
-          _input(today: monday),
-          DateRange.days(monday, 1),
-        );
+        final result = _run(_input(today: monday), DateRange.days(monday, 1));
         expect(result.single.status, OccurrenceStatus.scheduled);
       });
 
@@ -852,14 +835,8 @@ void main() {
 
         expect(result.length, 7);
         expect(result.map((o) => o.date), isNot(contains(monday.addWeeks(4))));
-        expect(
-          result.where((o) => o.blockId == 'block-2').length,
-          3,
-        );
-        expect(
-          result.last.sessionTemplateId,
-          'tpl-intensification',
-        );
+        expect(result.where((o) => o.blockId == 'block-2').length, 3);
+        expect(result.last.sessionTemplateId, 'tpl-intensification');
       });
 
       test('a gap between two blocks schedules nothing', () {

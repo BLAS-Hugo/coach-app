@@ -92,15 +92,14 @@ mixin SyncableDao on DatabaseAccessor<AppDatabase> {
     Expression<bool> Function(T table) filter,
   ) {
     final stamp = now();
-    return (update(table)..where(
-          (t) => filter(t) & _deletedAt(table).isNull(),
-        ))
-        .write(
-          RawValuesInsertable<R>({
-            _deletedAtColumn: Variable<DateTime>(stamp),
-            _updatedAtColumn: Variable<DateTime>(stamp),
-          }),
-        );
+    return (update(
+      table,
+    )..where((t) => filter(t) & _deletedAt(table).isNull())).write(
+      RawValuesInsertable<R>({
+        _deletedAtColumn: Variable<DateTime>(stamp),
+        _updatedAtColumn: Variable<DateTime>(stamp),
+      }),
+    );
   }
 
   /// Soft-deletes every live row matching [filter] whose id is not in

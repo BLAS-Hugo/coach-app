@@ -117,9 +117,7 @@ void main() {
       await repository.saveBlock(
         block('b2', startDate: DateOnly(2026, 10, 5), orderIndex: 100),
       );
-      await repository.saveBlock(
-        block('b1', startDate: DateOnly(2026, 9, 7)),
-      );
+      await repository.saveBlock(block('b1', startDate: DateOnly(2026, 9, 7)));
 
       final blocks = await repository.watchBlocks('p1').first;
       expect(blocks.map((b) => b.id), ['b1', 'b2']);
@@ -163,9 +161,7 @@ void main() {
     });
 
     test('ignores a deleted sibling when checking overlap', () async {
-      await repository.saveBlock(
-        block('b1', startDate: DateOnly(2026, 9, 14)),
-      );
+      await repository.saveBlock(block('b1', startDate: DateOnly(2026, 9, 14)));
       await repository.deleteBlock('b1');
 
       await expectLater(
@@ -213,9 +209,7 @@ void main() {
     });
 
     test('deletes a block that has not started yet', () async {
-      await repository.saveBlock(
-        block('b1', startDate: DateOnly(2026, 9, 8)),
-      );
+      await repository.saveBlock(block('b1', startDate: DateOnly(2026, 9, 8)));
 
       await repository.deleteBlock('b1');
 
@@ -267,10 +261,9 @@ void main() {
         const SessionTemplate(id: 't2', planId: 'p2', name: 'Sortie longue'),
       );
 
-      expect(
-        (await repository.watchTemplates('p1').first).map((t) => t.id),
-        ['t1'],
-      );
+      expect((await repository.watchTemplates('p1').first).map((t) => t.id), [
+        't1',
+      ]);
     });
 
     test('orders templates by name, accents folded', () async {
@@ -330,10 +323,10 @@ void main() {
       await repository.setSlot(slot('s1', DateTime.friday, 't1'));
       await repository.setSlot(slot('s2', DateTime.tuesday, 't2'));
 
-      expect(
-        (await repository.watchSlots('b1').first).map((s) => s.id),
-        ['s2', 's1'],
-      );
+      expect((await repository.watchSlots('b1').first).map((s) => s.id), [
+        's2',
+        's1',
+      ]);
     });
 
     test('replaces the slot already on that weekday', () async {
@@ -533,10 +526,7 @@ void main() {
         const PlanTypeConflictException('b2', 'p1').toString(),
         contains('p1'),
       );
-      expect(
-        const BlockStartedException('b1').toString(),
-        contains('stopped'),
-      );
+      expect(const BlockStartedException('b1').toString(), contains('stopped'));
     });
   });
 }

@@ -190,10 +190,7 @@ void main() {
 
     test('allows one live slot per weekday per block', () async {
       await insertSlot('slot-1');
-      await expectLater(
-        insertSlot('slot-2'),
-        throwsA(isA<SqliteException>()),
-      );
+      await expectLater(insertSlot('slot-2'), throwsA(isA<SqliteException>()));
     });
 
     test('lets a soft-deleted slot sit alongside its replacement', () async {

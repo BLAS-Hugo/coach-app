@@ -15,10 +15,7 @@ void main() {
 
     test('dark and light carry the handoff brightness and background', () {
       expect(AppTheme.dark.brightness, Brightness.dark);
-      expect(
-        AppTheme.dark.scaffoldBackgroundColor,
-        AppColors.dark.surfaceBase,
-      );
+      expect(AppTheme.dark.scaffoldBackgroundColor, AppColors.dark.surfaceBase);
       expect(AppTheme.light.brightness, Brightness.light);
       expect(
         AppTheme.light.scaffoldBackgroundColor,

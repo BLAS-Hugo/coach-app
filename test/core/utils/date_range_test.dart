@@ -173,10 +173,7 @@ void main() {
         expect(
           august,
           isNot(
-            DateRange(
-              start: DateOnly(2026, 8, 10),
-              end: DateOnly(2026, 8, 17),
-            ),
+            DateRange(start: DateOnly(2026, 8, 10), end: DateOnly(2026, 8, 17)),
           ),
         );
       });

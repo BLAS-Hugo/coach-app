@@ -13,10 +13,7 @@ class HistoryPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.historyTitle)),
       body: Center(
-        child: Text(
-          context.l10n.historyTitle,
-          style: context.typography.body,
-        ),
+        child: Text(context.l10n.historyTitle, style: context.typography.body),
       ),
     );
   }

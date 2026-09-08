@@ -14,10 +14,7 @@ class DayViewPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.todayTitle)),
       body: Center(
-        child: Text(
-          context.l10n.todayTitle,
-          style: context.typography.body,
-        ),
+        child: Text(context.l10n.todayTitle, style: context.typography.body),
       ),
     );
   }

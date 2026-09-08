@@ -6,10 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 extension PumpApp on WidgetTester {
   /// Pumps [widget] inside the real app theme, so widgets that read
   /// `context.colors` / `context.typography` resolve as they do in the app.
-  Future<void> pumpApp(
-    Widget widget, {
-    ThemeMode themeMode = ThemeMode.dark,
-  }) {
+  Future<void> pumpApp(Widget widget, {ThemeMode themeMode = ThemeMode.dark}) {
     return pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
