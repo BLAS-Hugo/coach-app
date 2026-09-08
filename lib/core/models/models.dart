@@ -1,7 +1,16 @@
 export 'package:coach_app/core/models/app_settings.dart';
 export 'package:coach_app/core/models/endurance.dart';
+export 'package:coach_app/core/models/endurance_block.dart';
+export 'package:coach_app/core/models/exercise.dart';
+export 'package:coach_app/core/models/exercise_entry.dart';
+export 'package:coach_app/core/models/intensity_label.dart';
+export 'package:coach_app/core/models/logged_block.dart';
+export 'package:coach_app/core/models/logged_exercise.dart';
+export 'package:coach_app/core/models/logged_set.dart';
 export 'package:coach_app/core/models/occurrence_move.dart';
 export 'package:coach_app/core/models/plan.dart';
+export 'package:coach_app/core/models/planned_set.dart';
+export 'package:coach_app/core/models/repeat_group.dart';
 export 'package:coach_app/core/models/session_log.dart';
 export 'package:coach_app/core/models/session_occurrence.dart';
 export 'package:coach_app/core/models/session_template.dart';
