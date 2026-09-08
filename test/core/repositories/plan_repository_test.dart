@@ -583,9 +583,7 @@ void main() {
     );
 
     test('numbers the current block among its siblings', () async {
-      await repository.saveBlock(
-        block('b1', startDate: today.addDays(-70)),
-      );
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
       await repository.saveBlock(
         block('b2', startDate: today.addDays(-7), durationWeeks: 5),
       );
@@ -612,9 +610,7 @@ void main() {
     });
 
     test('a plan whose blocks are all over is not active', () async {
-      await repository.saveBlock(
-        block('b1', startDate: today.addDays(-70)),
-      );
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
 
       final summary = await summaryOf('p1');
 

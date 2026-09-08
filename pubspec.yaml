@@ -14,6 +14,7 @@ dependencies:
   bloc: ^9.2.1
   drift: ^2.34.4
   drift_flutter: ^0.3.1
+  equatable: ^2.1.0
   flutter:
     sdk: flutter
   flutter_bloc: ^9.1.1
