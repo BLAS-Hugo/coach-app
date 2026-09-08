@@ -10,12 +10,8 @@ import 'package:coach_app/core/models/models.dart';
 /// The `toRow` side takes the timestamp rather than reading a clock, so the
 /// rows written by one transaction all carry the same instant.
 extension ExerciseRowMapper on ExerciseRow {
-  Exercise toDomain() => Exercise(
-    id: id,
-    name: name,
-    muscleGroup: muscleGroup,
-    notes: notes,
-  );
+  Exercise toDomain() =>
+      Exercise(id: id, name: name, muscleGroup: muscleGroup, notes: notes);
 }
 
 extension ExerciseMapper on Exercise {

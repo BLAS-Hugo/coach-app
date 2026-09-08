@@ -67,10 +67,7 @@ void main() {
     await expectLater(
       emissions,
       emitsThrough(
-        predicate<AppSettings>(
-          (s) => !s.audioCues,
-          'audio cues turned off',
-        ),
+        predicate<AppSettings>((s) => !s.audioCues, 'audio cues turned off'),
       ),
     );
   });

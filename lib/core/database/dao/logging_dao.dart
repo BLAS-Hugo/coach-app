@@ -8,9 +8,7 @@ import 'package:drift/drift.dart';
 part 'logging_dao.g.dart';
 
 /// Session logs and the content performed inside them.
-@DriftAccessor(
-  tables: [SessionLogs, LoggedExercises, LoggedSets, LoggedBlocks],
-)
+@DriftAccessor(tables: [SessionLogs, LoggedExercises, LoggedSets, LoggedBlocks])
 class LoggingDao extends DatabaseAccessor<AppDatabase>
     with _$LoggingDaoMixin, SyncableDao {
   LoggingDao(super.attachedDatabase, {this.now = DateTime.now});

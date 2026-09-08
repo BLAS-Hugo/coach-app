@@ -14,10 +14,7 @@ class PlansPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.programTitle)),
       body: Center(
-        child: Text(
-          context.l10n.programTitle,
-          style: context.typography.body,
-        ),
+        child: Text(context.l10n.programTitle, style: context.typography.body),
       ),
     );
   }

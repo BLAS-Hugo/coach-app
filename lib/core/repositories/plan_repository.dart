@@ -112,9 +112,7 @@ class DriftPlanRepository implements PlanRepository {
   @override
   Stream<List<TrainingBlock>> watchBlocks(String planId) => _dao
       .watchBlocks(planId)
-      .map(
-        (rows) => rows.map((row) => row.toDomain()).toList(),
-      );
+      .map((rows) => rows.map((row) => row.toDomain()).toList());
 
   @override
   Future<void> saveBlock(TrainingBlock block) async {

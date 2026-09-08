@@ -43,9 +43,7 @@ class TrainingBlocks extends Table with SyncableTable {
   IntColumn get durationWeeks => integer().nullable()();
 
   IntColumn get endDate => integer().nullable().map(
-    const NullAwareTypeConverter.wrap(
-      DateOnlyConverter(),
-    ),
+    const NullAwareTypeConverter.wrap(DateOnlyConverter()),
   )();
 
   TextColumn get notes => text().nullable()();

@@ -112,9 +112,8 @@ class ContentDao extends DatabaseAccessor<AppDatabase>
   /// history keeps reading "Z4" long after the label is gone (PRD §4.3).
   Future<void> deleteIntensityLabel(String id) => transaction(() async {
     final stamp = now();
-    await (update(enduranceBlocks)..where(
-          (t) => t.intensityLabelId.equals(id) & t.deletedAt.isNull(),
-        ))
+    await (update(enduranceBlocks)
+          ..where((t) => t.intensityLabelId.equals(id) & t.deletedAt.isNull()))
         .write(
           EnduranceBlocksCompanion(
             intensityLabelId: const Value(null),
@@ -145,10 +144,7 @@ class ContentDao extends DatabaseAccessor<AppDatabase>
         enduranceBlocks,
         (t) => t.sessionTemplateId.isIn(ids),
       );
-      await softDeleteWhere(
-        repeatGroups,
-        (t) => t.sessionTemplateId.isIn(ids),
-      );
+      await softDeleteWhere(repeatGroups, (t) => t.sessionTemplateId.isIn(ids));
     });
   }
 

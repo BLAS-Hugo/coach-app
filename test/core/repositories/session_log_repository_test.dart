@@ -102,10 +102,10 @@ void main() {
         (await repository.watchLoggedExercises('log1').first).map((e) => e.id),
         ['le1', 'le2'],
       );
-      expect(
-        (await repository.watchLoggedSets('le1').first).map((s) => s.id),
-        ['s1', 's2'],
-      );
+      expect((await repository.watchLoggedSets('le1').first).map((s) => s.id), [
+        's1',
+        's2',
+      ]);
     });
 
     test('renumbers logged content with gaps', () async {
@@ -121,12 +121,9 @@ void main() {
       );
 
       expect(
-        (await repository
-                .watchLoggedExercises(
-                  'log1',
-                )
-                .first)
-            .map((e) => e.orderIndex),
+        (await repository.watchLoggedExercises('log1').first).map(
+          (e) => e.orderIndex,
+        ),
         [0, 100],
       );
       expect(
@@ -187,9 +184,7 @@ void main() {
       // session that was neither performed nor declined
       // (`docs/PLANNING.md` §2).
       await expectLater(
-        repository.createLog(
-          log: log(started: false),
-        ),
+        repository.createLog(log: log(started: false)),
         throwsArgumentError,
       );
     });
@@ -258,20 +253,15 @@ void main() {
         loggedSet('s2', 'le1').copyWith(orderIndex: 100),
       );
 
-      expect(
-        (await repository.watchLoggedSets('le1').first).map((s) => s.id),
-        ['s1', 's2'],
-      );
+      expect((await repository.watchLoggedSets('le1').first).map((s) => s.id), [
+        's1',
+        's2',
+      ]);
     });
 
     test('marks an exercise skipped without touching the rest', () async {
       final exercise =
-          (await repository
-                  .watchLoggedExercises(
-                    'log1',
-                  )
-                  .first)
-              .single;
+          (await repository.watchLoggedExercises('log1').first).single;
 
       await repository.saveLoggedExercise(exercise.copyWith(skipped: true));
 

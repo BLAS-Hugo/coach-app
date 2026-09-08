@@ -47,9 +47,7 @@ void main() {
     test('keeps the original createdAt when updating', () async {
       final created = DateTime(2026, 9, 7, 8);
       final updated = DateTime(2026, 9, 8, 20);
-      final repository = buildRepository(
-        clock: clockOver([created, updated]),
-      );
+      final repository = buildRepository(clock: clockOver([created, updated]));
       await repository.save(const Exercise(id: 'e1', name: 'Squat'));
 
       await repository.save(const Exercise(id: 'e1', name: 'Squat barre'));
@@ -65,13 +63,10 @@ void main() {
       await repository.save(const Exercise(id: 'e1', name: 'Squat'));
       await repository.save(const Exercise(id: 'e2', name: 'Développé'));
 
-      expect(
-        await repository.watchAll().first,
-        [
-          const Exercise(id: 'e2', name: 'Développé'),
-          const Exercise(id: 'e1', name: 'Squat'),
-        ],
-      );
+      expect(await repository.watchAll().first, [
+        const Exercise(id: 'e2', name: 'Développé'),
+        const Exercise(id: 'e1', name: 'Squat'),
+      ]);
     });
 
     test('re-emits when an exercise is added', () async {
@@ -80,9 +75,7 @@ void main() {
 
       await expectLater(
         emissions,
-        emitsThrough(
-          [const Exercise(id: 'e1', name: 'Squat')],
-        ),
+        emitsThrough([const Exercise(id: 'e1', name: 'Squat')]),
       );
     });
   });
@@ -125,10 +118,9 @@ void main() {
       // Typing accents on a phone keyboard mid-workout is friction, and an
       // autocomplete that misses "elevations" is what fragments an
       // exercise's history into two spellings.
-      expect(
-        (await repository.watchMatching('elev').first).map((e) => e.id),
-        ['e4'],
-      );
+      expect((await repository.watchMatching('elev').first).map((e) => e.id), [
+        'e4',
+      ]);
     });
 
     test('excludes a deleted exercise', () async {

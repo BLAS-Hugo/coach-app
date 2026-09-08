@@ -96,10 +96,7 @@ void main() {
           DateOnly(2026, 8, 19).differenceInDays(DateOnly(2026, 8, 26)),
           -7,
         );
-        expect(
-          DateOnly(2027).differenceInDays(DateOnly(2026)),
-          365,
-        );
+        expect(DateOnly(2027).differenceInDays(DateOnly(2026)), 365);
       });
 
       test('addDays and differenceInDays invert each other', () {
@@ -131,10 +128,7 @@ void main() {
       });
 
       test('a week spanning a transition is exactly seven days', () {
-        expect(
-          DateOnly(2026, 4).differenceInDays(DateOnly(2026, 3, 25)),
-          7,
-        );
+        expect(DateOnly(2026, 4).differenceInDays(DateOnly(2026, 3, 25)), 7);
         expect(
           DateOnly(2026, 10, 29).differenceInDays(DateOnly(2026, 10, 22)),
           7,
@@ -211,10 +205,7 @@ void main() {
 
       test('equal dates are equal and hash alike', () {
         expect(DateOnly(2026, 8, 19), DateOnly(2026, 8, 19));
-        expect(
-          DateOnly(2026, 8, 19).hashCode,
-          DateOnly(2026, 8, 19).hashCode,
-        );
+        expect(DateOnly(2026, 8, 19).hashCode, DateOnly(2026, 8, 19).hashCode);
         expect(DateOnly(2026, 8, 19), isNot(later));
         // Deliberately comparing across types: == must reject a non-DateOnly
         // rather than throw, since it is reachable from collection lookups.

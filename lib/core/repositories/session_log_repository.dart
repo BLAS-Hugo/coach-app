@@ -84,10 +84,8 @@ class DriftSessionLogRepository implements SessionLogRepository {
   Future<SessionLog?> findLogForOccurrence({
     required String planId,
     required DateOnly date,
-  }) async => (await _dao.findLogForOccurrence(
-    planId: planId,
-    date: date,
-  ))?.toDomain();
+  }) async =>
+      (await _dao.findLogForOccurrence(planId: planId, date: date))?.toDomain();
 
   @override
   Stream<List<LoggedExercise>> watchLoggedExercises(String logId) => _dao

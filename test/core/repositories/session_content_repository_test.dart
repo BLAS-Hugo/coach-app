@@ -96,10 +96,10 @@ void main() {
         },
       );
 
-      expect(
-        (await repository.watchEntries('t1').first).map((e) => e.id),
-        ['e1', 'e2'],
-      );
+      expect((await repository.watchEntries('t1').first).map((e) => e.id), [
+        'e1',
+        'e2',
+      ]);
       expect(
         (await repository.watchPlannedSets('e1').first).map((s) => s.reps),
         [5, 3],
@@ -125,12 +125,9 @@ void main() {
         [0, 100],
       );
       expect(
-        (await repository
-                .watchPlannedSets(
-                  'e1',
-                )
-                .first)
-            .map((s) => s.orderIndex),
+        (await repository.watchPlannedSets('e1').first).map(
+          (s) => s.orderIndex,
+        ),
         [0, 100],
       );
     });
@@ -154,10 +151,10 @@ void main() {
         setsByEntry: const {},
       );
 
-      expect(
-        (await repository.watchEntries('t1').first).map((e) => e.id),
-        ['e2', 'e1'],
-      );
+      expect((await repository.watchEntries('t1').first).map((e) => e.id), [
+        'e2',
+        'e1',
+      ]);
     });
 
     test('drops an entry left out of the commit, and its sets', () async {
@@ -181,10 +178,9 @@ void main() {
         },
       );
 
-      expect(
-        (await repository.watchEntries('t1').first).map((e) => e.id),
-        ['e1'],
-      );
+      expect((await repository.watchEntries('t1').first).map((e) => e.id), [
+        'e1',
+      ]);
       expect(await repository.watchPlannedSets('e2').first, isEmpty);
       // Soft-deleted, like everything else in this database.
       expect(await db.select(db.plannedSets).get(), hasLength(2));
@@ -207,18 +203,15 @@ void main() {
         },
       );
 
-      expect(
-        (await repository.watchPlannedSets('e1').first).map((s) => s.id),
-        ['s1'],
-      );
+      expect((await repository.watchPlannedSets('e1').first).map((s) => s.id), [
+        's1',
+      ]);
     });
 
     test('leaves another template untouched', () async {
       await repository.replaceStrengthContent(
         templateId: 't2',
-        entries: [
-          entry('e9').copyWith(sessionTemplateId: 't2'),
-        ],
+        entries: [entry('e9').copyWith(sessionTemplateId: 't2')],
         setsByEntry: const {},
       );
 
@@ -228,10 +221,9 @@ void main() {
         setsByEntry: const {},
       );
 
-      expect(
-        (await repository.watchEntries('t2').first).map((e) => e.id),
-        ['e9'],
-      );
+      expect((await repository.watchEntries('t2').first).map((e) => e.id), [
+        'e9',
+      ]);
     });
 
     test('a failed commit changes nothing', () async {
@@ -255,14 +247,12 @@ void main() {
         throwsA(isA<Exception>()),
       );
 
-      expect(
-        (await repository.watchEntries('t1').first).map((e) => e.id),
-        ['e1'],
-      );
-      expect(
-        (await repository.watchPlannedSets('e1').first).map((s) => s.id),
-        ['s1'],
-      );
+      expect((await repository.watchEntries('t1').first).map((e) => e.id), [
+        'e1',
+      ]);
+      expect((await repository.watchPlannedSets('e1').first).map((s) => s.id), [
+        's1',
+      ]);
     });
   });
 
