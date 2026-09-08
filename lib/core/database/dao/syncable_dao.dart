@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:coach_app/core/database/app_database.dart';
 import 'package:drift/drift.dart';
 
@@ -100,6 +102,63 @@ mixin SyncableDao on DatabaseAccessor<AppDatabase> {
         _updatedAtColumn: Variable<DateTime>(stamp),
       }),
     );
+  }
+
+  /// Re-runs [read] whenever any of [tables] changes, beginning with one
+  /// immediate read.
+  ///
+  /// For a value assembled from several tables at once. Listening to the
+  /// database's update stream keeps it one trigger, one read and one
+  /// emission per change, where combining a query stream per table would
+  /// race and emit partial states in between. The subscription opens
+  /// **before** the first read, because a write landing between the two
+  /// would otherwise never reach a listener.
+  Stream<T> watchRecomputed<T>(
+    List<ResultSetImplementation<dynamic, dynamic>> tables,
+    Future<T> Function() read,
+  ) {
+    final updates = attachedDatabase.tableUpdates(
+      TableUpdateQuery.onAllTables(tables),
+    );
+
+    late StreamController<T> controller;
+    StreamSubscription<void>? subscription;
+    var reading = false;
+    var stale = false;
+
+    Future<void> reload() async {
+      // A write arriving mid-read marks the result stale rather than
+      // starting a second read, so a burst collapses into one extra pass
+      // instead of a queue of them.
+      if (reading) {
+        stale = true;
+        return;
+      }
+      reading = true;
+      do {
+        stale = false;
+        try {
+          final value = await read();
+          if (controller.isClosed) break;
+          controller.add(value);
+        } on Object catch (error, stackTrace) {
+          if (!controller.isClosed) controller.addError(error, stackTrace);
+        }
+      } while (stale);
+      reading = false;
+    }
+
+    controller = StreamController<T>(
+      onListen: () {
+        subscription = updates.listen((_) => reload());
+        unawaited(reload());
+      },
+      onCancel: () async {
+        await subscription?.cancel();
+        subscription = null;
+      },
+    );
+    return controller.stream;
   }
 
   /// Soft-deletes every live row matching [filter] whose id is not in
