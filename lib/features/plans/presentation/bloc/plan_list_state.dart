@@ -18,8 +18,7 @@ class PlanListState extends Equatable {
 
   /// True once the list has loaded and holds nothing — the "no plan yet"
   /// state that leads into plan creation (PRD §5.1).
-  bool get isEmpty =>
-      status == PlanListStatus.success && summaries.isEmpty;
+  bool get isEmpty => status == PlanListStatus.success && summaries.isEmpty;
 
   PlanListState copyWith({
     PlanListStatus? status,

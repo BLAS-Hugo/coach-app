@@ -27,5 +27,145 @@
     "historyTitle": "Historique",
     "@historyTitle": {
         "description": "Screen title of the history screen"
+    },
+    "planTypeStrength": "Force",
+    "@planTypeStrength": {
+        "description": "Name of the strength plan type. Rendered uppercase by the widget"
+    },
+    "planTypeEndurance": "Endurance",
+    "@planTypeEndurance": {
+        "description": "Name of the endurance plan type. Rendered uppercase by the widget"
+    },
+    "planTypeStrengthInitial": "F",
+    "@planTypeStrengthInitial": {
+        "description": "Single letter in the square badge of a strength plan card ('Force')"
+    },
+    "planTypeEnduranceInitial": "E",
+    "@planTypeEnduranceInitial": {
+        "description": "Single letter in the round badge of an endurance plan card ('Endurance')"
+    },
+    "planCardActiveBadge": "actif",
+    "@planCardActiveBadge": {
+        "description": "Marks a plan card whose block covers today. Lowercase by design"
+    },
+    "planCardStrengthSessions": "{name} — {count, plural, =1{1 séance} other{{count} séances}}",
+    "@planCardStrengthSessions": {
+        "description": "Title of a strength plan card: the plan name and how many sessions its current week schedules",
+        "placeholders": {
+            "name": {
+                "type": "String",
+                "example": "Haut / bas"
+            },
+            "count": {
+                "type": "int",
+                "example": "4"
+            }
+        }
+    },
+    "planCardEnduranceSessions": "{name} — {count, plural, =1{1 sortie} other{{count} sorties}}",
+    "@planCardEnduranceSessions": {
+        "description": "Title of an endurance plan card. Endurance sessions are 'sorties' (outings), never 'séances'",
+        "placeholders": {
+            "name": {
+                "type": "String",
+                "example": "Base + fractionné"
+            },
+            "count": {
+                "type": "int",
+                "example": "3"
+            }
+        }
+    },
+    "planCardBlockProgress": "bloc {ordinal} « {block} » · semaine {week} / {weeks}",
+    "@planCardBlockProgress": {
+        "description": "Subtitle of an active plan card. Both week numbers are 1-based",
+        "placeholders": {
+            "ordinal": {
+                "type": "int",
+                "example": "2"
+            },
+            "block": {
+                "type": "String",
+                "example": "intensification"
+            },
+            "week": {
+                "type": "int",
+                "example": "3"
+            },
+            "weeks": {
+                "type": "int",
+                "example": "5"
+            }
+        }
+    },
+    "planCardBlockProgressOngoing": "bloc {ordinal} « {block} » · semaine {week}",
+    "@planCardBlockProgressOngoing": {
+        "description": "Subtitle of an active plan card whose block has no end date, so there is no week total to show",
+        "placeholders": {
+            "ordinal": {
+                "type": "int",
+                "example": "2"
+            },
+            "block": {
+                "type": "String",
+                "example": "intensification"
+            },
+            "week": {
+                "type": "int",
+                "example": "3"
+            }
+        }
+    },
+    "planCardNoActiveBlock": "aucun bloc en cours",
+    "@planCardNoActiveBlock": {
+        "description": "Subtitle of a plan card whose blocks are all finished or still upcoming"
+    },
+    "planCardWeekTemplateAction": "Semaine type",
+    "@planCardWeekTemplateAction": {
+        "description": "Plan card action opening the weekly template editor"
+    },
+    "planCardBlocksAction": "Blocs",
+    "@planCardBlocksAction": {
+        "description": "Plan card action opening the list of the plan's training blocks"
+    },
+    "plansNewPlanAction": "Nouveau plan",
+    "@plansNewPlanAction": {
+        "description": "Dashed button under the plan list. A '+' glyph precedes it in the UI"
+    },
+    "plansEmptyTitle": "Aucun plan",
+    "@plansEmptyTitle": {
+        "description": "Heading shown when no plan exists yet"
+    },
+    "plansEmptyMessage": "Créez un plan pour commencer à programmer vos séances.",
+    "@plansEmptyMessage": {
+        "description": "Explains what a plan is for, on the empty plan list"
+    },
+    "plansLoadError": "Impossible de charger vos plans.",
+    "@plansLoadError": {
+        "description": "Shown when the plan list stream fails"
+    },
+    "newPlanSheetTitle": "Nouveau plan",
+    "@newPlanSheetTitle": {
+        "description": "Title of the plan creation sheet"
+    },
+    "newPlanNameLabel": "Nom",
+    "@newPlanNameLabel": {
+        "description": "Label of the plan name field in the creation sheet"
+    },
+    "newPlanNameHint": "Haut / bas",
+    "@newPlanNameHint": {
+        "description": "Placeholder in the plan name field, an example plan name"
+    },
+    "newPlanTypeLabel": "Type",
+    "@newPlanTypeLabel": {
+        "description": "Label above the strength/endurance choice in the creation sheet. The type is fixed at creation and never editable afterwards"
+    },
+    "newPlanSubmit": "Créer",
+    "@newPlanSubmit": {
+        "description": "Confirms plan creation"
+    },
+    "newPlanCancel": "Annuler",
+    "@newPlanCancel": {
+        "description": "Dismisses the plan creation sheet without creating anything"
     }
 }

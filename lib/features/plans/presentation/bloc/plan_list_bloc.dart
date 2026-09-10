@@ -28,10 +28,8 @@ class PlanListBloc extends Bloc<PlanListEvent, PlanListState> {
     emit(state.copyWith(status: PlanListStatus.loading));
     await emit.forEach<List<PlanSummary>>(
       _plans.watchSummaries(),
-      onData: (summaries) => state.copyWith(
-        status: PlanListStatus.success,
-        summaries: summaries,
-      ),
+      onData: (summaries) =>
+          state.copyWith(status: PlanListStatus.success, summaries: summaries),
       onError: (_, _) => state.copyWith(status: PlanListStatus.failure),
     );
   }
@@ -45,9 +43,7 @@ class PlanListBloc extends Bloc<PlanListEvent, PlanListState> {
     if (name.isEmpty) return;
 
     try {
-      await _plans.savePlan(
-        Plan(id: newId(), name: name, type: event.type),
-      );
+      await _plans.savePlan(Plan(id: newId(), name: name, type: event.type));
     } on Object {
       emit(state.copyWith(status: PlanListStatus.failure));
     }
