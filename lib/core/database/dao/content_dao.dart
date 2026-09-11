@@ -5,6 +5,9 @@ import 'package:drift/drift.dart';
 
 part 'content_dao.g.dart';
 
+/// The size of one template's content: what a one-line meta reads.
+typedef ContentCounts = ({int exercises, int sets, int enduranceBlocks});
+
 /// The content of session templates: strength entries and their planned
 /// sets, endurance blocks and their repeat groups, and the intensity labels
 /// those blocks point at.
@@ -62,6 +65,66 @@ class ContentDao extends DatabaseAccessor<AppDatabase>
       sets.map((row) => row.id),
     );
   });
+
+  /// How much live content each of [templateIds] holds.
+  ///
+  /// Counted in Dart over three small reads rather than in one grouped
+  /// query: a plan holds a handful of templates, and the join a single
+  /// statement needs — sets reach their template only through their entry —
+  /// buys nothing at that size.
+  Future<Map<String, ContentCounts>> loadContentCounts(
+    List<String> templateIds,
+  ) async {
+    if (templateIds.isEmpty) return const {};
+    final entries = await (selectLive(
+      exerciseEntries,
+    )..where((t) => t.sessionTemplateId.isIn(templateIds))).get();
+    final templateOfEntry = {
+      for (final entry in entries) entry.id: entry.sessionTemplateId,
+    };
+    final sets = templateOfEntry.isEmpty
+        ? const <PlannedSetRow>[]
+        : await (selectLive(
+            plannedSets,
+          )..where((t) => t.exerciseEntryId.isIn(templateOfEntry.keys))).get();
+    final blocks = await (selectLive(
+      enduranceBlocks,
+    )..where((t) => t.sessionTemplateId.isIn(templateIds))).get();
+
+    final exercises = <String, int>{};
+    for (final entry in entries) {
+      exercises.update(
+        entry.sessionTemplateId,
+        (n) => n + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    final setCounts = <String, int>{};
+    for (final set in sets) {
+      setCounts.update(
+        templateOfEntry[set.exerciseEntryId]!,
+        (n) => n + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    final blockCounts = <String, int>{};
+    for (final block in blocks) {
+      blockCounts.update(
+        block.sessionTemplateId,
+        (n) => n + 1,
+        ifAbsent: () => 1,
+      );
+    }
+
+    return {
+      for (final id in templateIds)
+        id: (
+          exercises: exercises[id] ?? 0,
+          sets: setCounts[id] ?? 0,
+          enduranceBlocks: blockCounts[id] ?? 0,
+        ),
+    };
+  }
 
   // --- endurance ---------------------------------------------------------
 
