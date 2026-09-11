@@ -96,6 +96,21 @@ class PlanningDao extends DatabaseAccessor<AppDatabase>
     await softDeleteRow(sessionTemplates, id);
   });
 
+  /// Everything the plan list reads, in one pass.
+  ///
+  /// Read whole rather than per plan: a handful of plans, a handful of
+  /// blocks each and at most seven slots per block, against one query per
+  /// plan per stream if the caller assembled it itself.
+  Future<PlanningSources> loadSummarySources() async => PlanningSources(
+    plans: await selectLive(plans).get(),
+    blocks: await selectLive(trainingBlocks).get(),
+    slots: await selectLive(weeklySlots).get(),
+  );
+
+  /// [loadSummarySources], re-read whenever any of its three tables change.
+  Stream<PlanningSources> watchSummarySources() =>
+      watchRecomputed([plans, trainingBlocks, weeklySlots], loadSummarySources);
+
   /// The ids of a plan's blocks, deleted ones included.
   ///
   /// Deleted rows are included so a cascade reaches the deviations of a
@@ -160,4 +175,17 @@ class PlanningDao extends DatabaseAccessor<AppDatabase>
   ) => selectOnly(trainingBlocks)
     ..addColumns([trainingBlocks.id])
     ..where(trainingBlocks.planId.equals(planId));
+}
+
+/// The rows one plan-list computation reads, as a single value.
+class PlanningSources {
+  const PlanningSources({
+    required this.plans,
+    required this.blocks,
+    required this.slots,
+  });
+
+  final List<PlanRow> plans;
+  final List<TrainingBlockRow> blocks;
+  final List<WeeklySlotRow> slots;
 }

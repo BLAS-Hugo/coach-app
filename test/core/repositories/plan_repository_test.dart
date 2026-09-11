@@ -529,4 +529,157 @@ void main() {
       expect(const BlockStartedException('b1').toString(), contains('stopped'));
     });
   });
+
+  group('plan summaries', () {
+    setUp(() async {
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't1', planId: 'p1', name: 'Haut du corps'),
+      );
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't2', planId: 'p1', name: 'Bas du corps'),
+      );
+    });
+
+    /// The card for [planId]. Summaries come back ordered by plan name, so
+    /// indexing into the list would silently pick the wrong plan.
+    Future<PlanSummary> summaryOf(String planId) async =>
+        (await repository.watchSummaries().first).firstWhere(
+          (summary) => summary.plan.id == planId,
+        );
+
+    Future<void> addSlots(String blockId, List<int> weekdays) async {
+      for (final weekday in weekdays) {
+        await repository.setSlot(
+          WeeklySlot(
+            id: 'sl-$blockId-$weekday',
+            blockId: blockId,
+            weekday: weekday,
+            sessionTemplateId: 't1',
+          ),
+        );
+      }
+    }
+
+    test(
+      'reads the week the active block is in, 1-based for display',
+      () async {
+        // Block starts three weeks before today, so today sits in week 2
+        // counting from zero — "semaine 3 / 5" on design screen 4a.
+        await repository.saveBlock(
+          block(
+            'b1',
+            startDate: today.addDays(-14),
+            durationWeeks: 5,
+          ).copyWith(name: 'Intensification'),
+        );
+
+        final summary = await summaryOf('p1');
+
+        expect(summary.currentBlock?.name, 'Intensification');
+        expect(summary.weekIndex, 2);
+        expect(summary.weekCount, 5);
+        expect(summary.isActive, isTrue);
+      },
+    );
+
+    test('numbers the current block among its siblings', () async {
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
+      await repository.saveBlock(
+        block('b2', startDate: today.addDays(-7), durationWeeks: 5),
+      );
+
+      final summary = await summaryOf('p1');
+
+      // "bloc 2" — 1-based, and counted in chronological order.
+      expect(summary.currentBlockOrdinal, 2);
+      expect(summary.blockCount, 2);
+    });
+
+    test('counts the sessions the active block schedules each week', () async {
+      await repository.saveBlock(block('b1', startDate: today));
+      await addSlots('b1', [
+        DateTime.monday,
+        DateTime.wednesday,
+        DateTime.friday,
+        DateTime.saturday,
+      ]);
+
+      final summary = await summaryOf('p1');
+
+      expect(summary.sessionsPerWeek, 4);
+    });
+
+    test('a plan whose blocks are all over is not active', () async {
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
+
+      final summary = await summaryOf('p1');
+
+      expect(summary.isActive, isFalse);
+      expect(summary.currentBlock, isNull);
+      expect(summary.weekIndex, isNull);
+      expect(summary.sessionsPerWeek, 0);
+      // The plan still lists, so the card can offer to start a new block.
+      expect(summary.blockCount, 1);
+    });
+
+    test('a plan with no blocks at all still appears', () async {
+      final summaries = await repository.watchSummaries().first;
+
+      expect(summaries.map((s) => s.plan.id), ['p2', 'p1']);
+      expect(summaries.every((s) => s.isActive), isFalse);
+    });
+
+    test('an ongoing block is active with no week count', () async {
+      await repository.saveBlock(
+        block('b1', startDate: today.addDays(-7), durationWeeks: null),
+      );
+
+      final summary = await summaryOf('p1');
+
+      expect(summary.isActive, isTrue);
+      expect(summary.weekIndex, 1);
+      expect(summary.weekCount, isNull);
+    });
+
+    test('excludes a deleted plan', () async {
+      await repository.deletePlan('p1');
+
+      final summaries = await repository.watchSummaries().first;
+
+      expect(summaries.map((s) => s.plan.id), ['p2']);
+    });
+
+    test('re-emits when a block is added', () async {
+      final emissions = repository.watchSummaries();
+
+      await repository.saveBlock(block('b1', startDate: today));
+
+      await expectLater(
+        emissions,
+        emitsThrough(
+          predicate<List<PlanSummary>>(
+            (list) => list.any((s) => s.isActive),
+            'a plan turned active',
+          ),
+        ),
+      );
+    });
+
+    test('re-emits when a weekly slot changes', () async {
+      await repository.saveBlock(block('b1', startDate: today));
+      final emissions = repository.watchSummaries();
+
+      await addSlots('b1', [DateTime.monday]);
+
+      await expectLater(
+        emissions,
+        emitsThrough(
+          predicate<List<PlanSummary>>(
+            (list) => list.any((s) => s.sessionsPerWeek == 1),
+            'the session count caught up',
+          ),
+        ),
+      );
+    });
+  });
 }

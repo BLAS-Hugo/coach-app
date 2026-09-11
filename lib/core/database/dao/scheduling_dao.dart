@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:coach_app/core/database/app_database.dart';
 import 'package:coach_app/core/database/dao/syncable_dao.dart';
 import 'package:coach_app/core/database/tables/deviation_tables.dart';
@@ -59,63 +57,14 @@ class SchedulingDao extends DatabaseAccessor<AppDatabase>
       );
 
   /// [loadSources], re-read whenever any table it touches changes.
-  ///
-  /// Six tables feed one computation, so this listens to the database's
-  /// update stream rather than combining six query streams: one trigger,
-  /// one read, one emission per change instead of six racing partial
-  /// states. The subscription is opened *before* the first read, because a
-  /// write landing in between would otherwise never reach a listener.
-  Stream<SchedulingSources> watchSources(DateRange range) {
-    final updates = attachedDatabase.tableUpdates(
-      TableUpdateQuery.onAllTables([
-        plans,
-        trainingBlocks,
-        weeklySlots,
-        weekOverrides,
-        occurrenceMoves,
-        sessionLogs,
-      ]),
-    );
-
-    late StreamController<SchedulingSources> controller;
-    StreamSubscription<void>? subscription;
-    var reading = false;
-    var stale = false;
-
-    Future<void> reload() async {
-      // A write arriving mid-read marks the result stale rather than
-      // starting a second read, so a burst of updates collapses into one
-      // extra pass instead of a queue of them.
-      if (reading) {
-        stale = true;
-        return;
-      }
-      reading = true;
-      do {
-        stale = false;
-        try {
-          final sources = await loadSources(range);
-          if (controller.isClosed) break;
-          controller.add(sources);
-        } on Object catch (error, stackTrace) {
-          if (!controller.isClosed) controller.addError(error, stackTrace);
-        }
-      } while (stale);
-      reading = false;
-    }
-
-    controller = StreamController<SchedulingSources>(
-      onListen: () {
-        subscription = updates.listen((_) => reload());
-        unawaited(reload());
-      },
-      onCancel: () async {
-        await subscription?.cancel();
-        subscription = null;
-      },
-    );
-    return controller.stream;
-  }
+  Stream<SchedulingSources> watchSources(DateRange range) => watchRecomputed([
+    plans,
+    trainingBlocks,
+    weeklySlots,
+    weekOverrides,
+    occurrenceMoves,
+    sessionLogs,
+  ], () => loadSources(range));
 
   Future<PlanRow?> findPlan(String id) => findLiveById(plans, id);
 

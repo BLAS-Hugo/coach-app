@@ -46,6 +46,11 @@ class BlockStartedException implements Exception {
 abstract interface class PlanRepository {
   Stream<List<Plan>> watchPlans();
 
+  /// Every live plan with the state the plan list renders: which block is
+  /// running, how far into it today is, and how many sessions its week
+  /// holds. Re-emitted whenever any of that changes.
+  Stream<List<PlanSummary>> watchSummaries();
+
   Future<Plan?> findPlan(String id);
 
   Future<void> savePlan(Plan plan);
@@ -94,6 +99,10 @@ class DriftPlanRepository implements PlanRepository {
   Stream<List<Plan>> watchPlans() => _dao.watchPlans().map(
     (rows) => _byName(rows.map((row) => row.toDomain()), (plan) => plan.name),
   );
+
+  @override
+  Stream<List<PlanSummary>> watchSummaries() =>
+      _dao.watchSummarySources().map(_summarise);
 
   @override
   Future<Plan?> findPlan(String id) async =>
@@ -176,6 +185,44 @@ class DriftPlanRepository implements PlanRepository {
       _dao.clearSlot(blockId: blockId, weekday: weekday);
 
   DateOnly get _today => DateOnly.today(clock: _dao.now);
+
+  /// Projects the three source tables onto one card per plan.
+  List<PlanSummary> _summarise(PlanningSources sources) {
+    final today = _today;
+    final blocksByPlan = <String, List<TrainingBlock>>{};
+    for (final row in sources.blocks) {
+      (blocksByPlan[row.planId] ??= []).add(row.toDomain());
+    }
+    final slotCounts = <String, int>{};
+    for (final row in sources.slots) {
+      slotCounts[row.blockId] = (slotCounts[row.blockId] ?? 0) + 1;
+    }
+
+    final summaries = <PlanSummary>[];
+    for (final planRow in sources.plans) {
+      final plan = planRow.toDomain();
+      // Chronological, which is also the order the card numbers them in:
+      // blocks in a plan cannot overlap, so their dates are a total order.
+      final blocks = (blocksByPlan[plan.id] ?? [])
+        ..sort((a, b) => a.startDate.compareTo(b.startDate));
+      final index = blocks.indexWhere((block) => block.covers(today));
+      final current = index == -1 ? null : blocks[index];
+
+      summaries.add(
+        PlanSummary(
+          plan: plan,
+          blockCount: blocks.length,
+          currentBlock: current,
+          currentBlockOrdinal: current == null ? null : index + 1,
+          weekIndex: current?.weekIndexOf(today),
+          weekCount: current?.weekCount,
+          sessionsPerWeek: current == null ? 0 : slotCounts[current.id] ?? 0,
+        ),
+      );
+    }
+
+    return _byName(summaries, (summary) => summary.plan.name);
+  }
 
   /// Checks [block] against its siblings and against every other plan of the
   /// same type.
