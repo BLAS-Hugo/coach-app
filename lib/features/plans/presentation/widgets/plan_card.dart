@@ -1,5 +1,6 @@
 import 'package:coach_app/app/theme/theme.dart';
 import 'package:coach_app/core/models/models.dart';
+import 'package:coach_app/features/plans/presentation/widgets/plan_type_badge.dart';
 import 'package:coach_app/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -19,9 +20,6 @@ class PlanCard extends StatelessWidget {
     this.onBlocks,
     super.key,
   });
-
-  /// Side of the square/round plan-type badge.
-  static const double _badgeSize = 22;
 
   /// Height of one week segment in the progress rail.
   static const double _railHeight = 6;
@@ -148,32 +146,7 @@ class _Header extends StatelessWidget {
 
     return Row(
       children: [
-        // Square for force, round for endurance: the shape carries the type
-        // as much as the colour does, so the two stay apart without colour.
-        Container(
-          width: PlanCard._badgeSize,
-          height: PlanCard._badgeSize,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: accent,
-            borderRadius: BorderRadius.circular(
-              isStrength ? AppRadii.sm : AppRadii.pill,
-            ),
-          ),
-          child: ExcludeSemantics(
-            child: Text(
-              isStrength
-                  ? l10n.planTypeStrengthInitial
-                  : l10n.planTypeEnduranceInitial,
-              style: typography.dataSmall.copyWith(
-                fontSize: 11,
-                height: 1,
-                fontWeight: FontWeight.w600,
-                color: colors.onAccent,
-              ),
-            ),
-          ),
-        ),
+        PlanTypeBadge(isStrength: isStrength),
         const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: Semantics(

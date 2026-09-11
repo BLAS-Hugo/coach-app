@@ -10,11 +10,13 @@ spec) and `docs/PLANNING.md` (technical plan: architecture, schema, bloc invento
 algorithm, milestones) are the source of truth for what to build and how. **Read both before starting
 any feature work**, and check `docs/PLANNING.md` §6 to see which milestone is current.
 
-**M0 and M1 are done; M2 (plan editor, strength) is next.** In place: theme, `go_router` shell and
+**M0 and M1 are done; M2 (plan editor, strength) is in progress** — the plan list (screen 4a)
+and the weekly template (4b) are built; the session editor (4c) and the exercise sheet (4d)
+are next. In place: theme, `go_router` shell and
 `get_it` wiring; `core/utils/` date types; the `core/scheduling/` occurrence engine; Drift schema v1;
 and `core/repositories/`, which exposes domain models over `watch()` streams and holds the write-time
-validation the schema cannot express. M2 is the first milestone with real blocs and screens — the
-`features/` folders are still placeholder pages behind the three tabs.
+validation the schema cannot express. `features/plans` holds the first real blocs and screens; the other
+`features/` folders are still placeholder pages behind the tabs.
 
 `pubspec.yaml` carries `bloc`/`flutter_bloc`, `drift`/`drift_flutter`, `freezed`, `get_it`, `go_router`,
 `intl`, `json_annotation`, `meta` and `uuid`. The rest of the planned set in `docs/PLANNING.md` §1

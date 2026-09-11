@@ -164,8 +164,262 @@
     "@newPlanSubmit": {
         "description": "Confirms plan creation"
     },
-    "newPlanCancel": "Annuler",
-    "@newPlanCancel": {
-        "description": "Dismisses the plan creation sheet without creating anything"
+    "weekdayShort": "{weekday, select, 1{Lun} 2{Mar} 3{Mer} 4{Jeu} 5{Ven} 6{Sam} 7{Dim} other{}}",
+    "@weekdayShort": {
+        "description": "Three-letter weekday abbreviation, keyed by ISO weekday 1 (Monday) to 7 (Sunday). Rendered uppercase by the widget",
+        "placeholders": {
+            "weekday": {
+                "type": "String",
+                "example": "1"
+            }
+        }
+    },
+    "weekdayLong": "{weekday, select, 1{Lundi} 2{Mardi} 3{Mercredi} 4{Jeudi} 5{Vendredi} 6{Samedi} 7{Dimanche} other{}}",
+    "@weekdayLong": {
+        "description": "Full weekday name, keyed by ISO weekday 1 (Monday) to 7 (Sunday)",
+        "placeholders": {
+            "weekday": {
+                "type": "String",
+                "example": "1"
+            }
+        }
+    },
+    "navigateBack": "Retour",
+    "@navigateBack": {
+        "description": "Accessibility label of the back chevron in a screen header"
+    },
+    "weekTemplateTitle": "Semaine type",
+    "@weekTemplateTitle": {
+        "description": "Screen title of the weekly template editor (design screen 4b)"
+    },
+    "weekTemplateHeader": "{type} · bloc {ordinal}",
+    "@weekTemplateHeader": {
+        "description": "Header above the weekly template: the plan type and which block of the plan is being edited. Rendered uppercase",
+        "placeholders": {
+            "type": {
+                "type": "String",
+                "example": "Force"
+            },
+            "ordinal": {
+                "type": "int",
+                "example": "2"
+            }
+        }
+    },
+    "weekTemplateUndo": "Annuler",
+    "@weekTemplateUndo": {
+        "description": "Header action taking back the last edit. The screen saves continuously, so this is the only way back"
+    },
+    "weekTemplateSessionCount": "{count, plural, =0{aucune séance} =1{1 séance} other{{count} séances}}",
+    "@weekTemplateSessionCount": {
+        "description": "Status line under the title: sessions scheduled per week",
+        "placeholders": {
+            "count": {
+                "type": "int",
+                "example": "4"
+            }
+        }
+    },
+    "weekTemplateRepeatedWeeks": "{weeks, plural, =1{répétée 1 semaine} other{répétée {weeks} semaines}}",
+    "@weekTemplateRepeatedWeeks": {
+        "description": "Status line under the title: how many weeks the block repeats this week",
+        "placeholders": {
+            "weeks": {
+                "type": "int",
+                "example": "5"
+            }
+        }
+    },
+    "weekTemplateRepeatedOngoing": "répétée sans fin",
+    "@weekTemplateRepeatedOngoing": {
+        "description": "Status line under the title, for a block with no end date"
+    },
+    "weekTemplateAppliesFromToday": "modifs appliquées à partir d'aujourd'hui",
+    "@weekTemplateAppliesFromToday": {
+        "description": "Status line under the title: edits never alter a session already started or skipped"
+    },
+    "weekTemplateFinished": "bloc terminé, lecture seule",
+    "@weekTemplateFinished": {
+        "description": "Status line under the title for a block that has ended; its week can no longer be edited"
+    },
+    "weekTemplateRest": "repos",
+    "@weekTemplateRest": {
+        "description": "A weekday with no session. Lowercase by design"
+    },
+    "weekTemplateAddSession": "Ajouter une séance le {weekday}",
+    "@weekTemplateAddSession": {
+        "description": "Accessibility label of a rest day's '+' affordance",
+        "placeholders": {
+            "weekday": {
+                "type": "String",
+                "example": "mardi"
+            }
+        }
+    },
+    "weekTemplateMoveSession": "Glisser pour déplacer vers un autre jour",
+    "@weekTemplateMoveSession": {
+        "description": "Accessibility hint of a session's drag handle"
+    },
+    "templateExerciseCount": "{count, plural, =1{1 exercice} other{{count} exercices}}",
+    "@templateExerciseCount": {
+        "description": "Size of a strength session: exercise count",
+        "placeholders": {
+            "count": {
+                "type": "int",
+                "example": "6"
+            }
+        }
+    },
+    "templateSetCount": "{count, plural, =1{1 série} other{{count} séries}}",
+    "@templateSetCount": {
+        "description": "Size of a strength session: planned set count",
+        "placeholders": {
+            "count": {
+                "type": "int",
+                "example": "24"
+            }
+        }
+    },
+    "templateEnduranceBlockCount": "{count, plural, =1{1 bloc} other{{count} blocs}}",
+    "@templateEnduranceBlockCount": {
+        "description": "Size of an endurance session: segment count",
+        "placeholders": {
+            "count": {
+                "type": "int",
+                "example": "7"
+            }
+        }
+    },
+    "templateEmpty": "séance vide",
+    "@templateEmpty": {
+        "description": "Meta of a session template with no content yet"
+    },
+    "weekTemplateBlockSection": "Bloc",
+    "@weekTemplateBlockSection": {
+        "description": "Section label above the block settings. Rendered uppercase"
+    },
+    "weekTemplateDuration": "Durée du bloc",
+    "@weekTemplateDuration": {
+        "description": "Row opening the block duration sheet; also that sheet's title"
+    },
+    "blockDurationWeeks": "{weeks, plural, =1{1 semaine} other{{weeks} semaines}}",
+    "@blockDurationWeeks": {
+        "description": "A block's length",
+        "placeholders": {
+            "weeks": {
+                "type": "int",
+                "example": "5"
+            }
+        }
+    },
+    "blockDurationOngoing": "sans fin",
+    "@blockDurationOngoing": {
+        "description": "Length of a block with no end date"
+    },
+    "weekTemplateDuplicate": "Dupliquer la semaine",
+    "@weekTemplateDuplicate": {
+        "description": "Row starting the next block from this block's weekly template (PRD §6.4)"
+    },
+    "weekTemplateDuplicateHint": "puis ajuster",
+    "@weekTemplateDuplicateHint": {
+        "description": "Hint beside 'Dupliquer la semaine': the copy is meant to be adjusted afterwards"
+    },
+    "weekTemplateStop": "Arrêter le bloc après cette semaine",
+    "@weekTemplateStop": {
+        "description": "Pinned action ending the block on the last day of the current week"
+    },
+    "weekTemplateNoBlockTitle": "Aucun bloc",
+    "@weekTemplateNoBlockTitle": {
+        "description": "Heading shown when the plan has no training block yet"
+    },
+    "weekTemplateNoBlockMessage": "Un bloc donne ses dates au plan : sa semaine type se répète chaque semaine qu'il dure.",
+    "@weekTemplateNoBlockMessage": {
+        "description": "Explains what a block is, on a plan with none"
+    },
+    "weekTemplateCreateBlock": "Créer le premier bloc",
+    "@weekTemplateCreateBlock": {
+        "description": "Button opening the block creation sheet on a plan with no block"
+    },
+    "weekTemplateNotFound": "Ce plan n'existe plus.",
+    "@weekTemplateNotFound": {
+        "description": "Shown when the plan being edited was deleted"
+    },
+    "weekTemplateLoadError": "Impossible de charger la semaine type.",
+    "@weekTemplateLoadError": {
+        "description": "Shown when the weekly template stream fails"
+    },
+    "weekTemplateErrorOverlap": "Ces dates chevauchent un autre bloc de ce plan.",
+    "@weekTemplateErrorOverlap": {
+        "description": "Snackbar when a block edit would overlap a sibling block"
+    },
+    "weekTemplateErrorPlanConflict": "Ces dates chevauchent un autre plan du même type. Arrêtez d'abord son bloc en cours.",
+    "@weekTemplateErrorPlanConflict": {
+        "description": "Snackbar when a block edit would overlap another plan of the same type (PRD §4.1)"
+    },
+    "weekTemplateErrorUnknown": "La modification n'a pas pu être enregistrée.",
+    "@weekTemplateErrorUnknown": {
+        "description": "Snackbar when an edit failed for any other reason"
+    },
+    "blockDefaultName": "Bloc {ordinal}",
+    "@blockDefaultName": {
+        "description": "Default name of a new training block",
+        "placeholders": {
+            "ordinal": {
+                "type": "int",
+                "example": "2"
+            }
+        }
+    },
+    "sessionPickerRest": "Mettre en repos",
+    "@sessionPickerRest": {
+        "description": "Sheet row turning a weekday into a rest day"
+    },
+    "sessionPickerNew": "Nouvelle séance",
+    "@sessionPickerNew": {
+        "description": "Label of the field creating a session template from the weekday sheet"
+    },
+    "sessionPickerNewHint": "Haut du corps — poussée",
+    "@sessionPickerNewHint": {
+        "description": "Placeholder of the new session name field, an example session name"
+    },
+    "sessionPickerCreate": "Créer",
+    "@sessionPickerCreate": {
+        "description": "Confirms the new session name"
+    },
+    "sheetConfirm": "Valider",
+    "@sheetConfirm": {
+        "description": "Confirms a sheet"
+    },
+    "sheetCancel": "Annuler",
+    "@sheetCancel": {
+        "description": "Dismisses a sheet without changing anything"
+    },
+    "stepperDecrease": "Moins",
+    "@stepperDecrease": {
+        "description": "Accessibility label of a stepper's minus button"
+    },
+    "stepperIncrease": "Plus",
+    "@stepperIncrease": {
+        "description": "Accessibility label of a stepper's plus button"
+    },
+    "newBlockSheetTitle": "Nouveau bloc",
+    "@newBlockSheetTitle": {
+        "description": "Title of the block creation sheet"
+    },
+    "newBlockNameLabel": "Nom",
+    "@newBlockNameLabel": {
+        "description": "Label of the block name field"
+    },
+    "newBlockStartLabel": "Début",
+    "@newBlockStartLabel": {
+        "description": "Label of the block start date row"
+    },
+    "newBlockDurationLabel": "Durée",
+    "@newBlockDurationLabel": {
+        "description": "Label of the block duration stepper"
+    },
+    "newBlockSubmit": "Créer",
+    "@newBlockSubmit": {
+        "description": "Confirms block creation"
     }
 }

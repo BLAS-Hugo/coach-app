@@ -64,6 +64,7 @@ Each feature folder holds `bloc/`, `view/`, `widgets/`.
 | `build_runner` | Codegen | Drift + freezed |
 | `freezed` + `json_serializable` | Domain models, bloc states, snapshot JSON | |
 | `get_it` | DI | Manual registration; skip `injectable`, the app is small |
+| `equatable` | Value equality for bloc events and states | What `bloc_test` compares emitted states with |
 | `go_router` | Routing | |
 | `uuid` | UUID v7 primary keys | v7 sorts chronologically, useful for debugging |
 | `intl` + `flutter_localizations` | Dates and l10n | |
@@ -305,13 +306,21 @@ This function is the app. Budget real time for its test suite (§6, M1).
 | `CalendarBloc` | Selected date, the ±7-day window, occurrence list per date. Watches plan + log streams. |
 | `SessionDetailCubit` | Loads one occurrence's planned or logged content. |
 | `PlanListBloc` | Plans, filtering, soft delete, activation conflict validation. |
-| `PlanEditorBloc` | The whole editor as one bloc with a draft aggregate held in state; commits to the DB in a single transaction on save. Do **not** write on every keystroke. |
+| `WeekTemplateBloc` | One block's weekly template (screen 4b): weekday assignment, drag-to-move, block length, stop, duplicate into the next block. **Saves each edit as it happens**, with an undo stack behind the header's "Annuler" — see the note below. |
+| `PlanEditorBloc` | The session editor (screens 4c/4d) as one bloc with a draft aggregate held in state; commits to the DB in a single transaction on save. Do **not** write on every keystroke. |
 | `WeekOverrideBloc` | Week view of a plan, override CRUD. |
 | `StrengthRunnerBloc` | Active session state, set validation, add/remove set, superset round pointer, persistence on every mutation. |
 | `EnduranceRunnerBloc` | Block pointer, round pointer, timer ticks, pause/resume/skip, foreground-service lifecycle. |
 | `RestTimerCubit` | Independent countdown, shared by the strength runner. |
 | `HistoryBloc` | Exercise selection, metric selection, chart series computation. |
 | `SettingsCubit` | App settings, hydrated at startup. |
+
+**Why the weekly template does not use a draft.** The design gives screen 4b no save
+button: edits apply at once and "Annuler" takes back the last one. The draft rule above
+exists to keep typing out of the database, and nothing on 4b is typed — each edit is one
+tap and one transaction (`PlanRepository.replaceSlots` commits a whole week, so a move
+or a swap is atomic). Its edits run strictly in order and each reads the week afresh
+from the repository, so two quick taps cannot overwrite each other.
 
 Use `freezed` unions for runner states — the strength runner has enough states
 (`initial`, `loading`, `running`, `paused`, `finishing`, `completed`) that a sealed

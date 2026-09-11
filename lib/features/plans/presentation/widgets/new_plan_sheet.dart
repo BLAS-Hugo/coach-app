@@ -1,5 +1,6 @@
 import 'package:coach_app/app/theme/theme.dart';
 import 'package:coach_app/core/models/models.dart';
+import 'package:coach_app/features/plans/presentation/widgets/sheet_parts.dart';
 import 'package:coach_app/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -30,15 +31,8 @@ class NewPlanSheet extends StatefulWidget {
   const NewPlanSheet({super.key});
 
   /// Opens the sheet and resolves to the request, or null if dismissed.
-  static Future<NewPlanRequest?> show(BuildContext context) {
-    return showModalBottomSheet<NewPlanRequest>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: const Color(0x00000000),
-      builder: (_) => const NewPlanSheet(),
-    );
-  }
+  static Future<NewPlanRequest?> show(BuildContext context) =>
+      showPlanSheet<NewPlanRequest>(context, const NewPlanSheet());
 
   @override
   State<NewPlanSheet> createState() => _NewPlanSheetState();
@@ -63,119 +57,50 @@ class _NewPlanSheetState extends State<NewPlanSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final typography = context.typography;
     final l10n = context.l10n;
 
-    return Padding(
-      // Lifts the sheet clear of the keyboard the name field summons.
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceRaised,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(AppRadii.sheet),
-          ),
+    return SheetFrame(
+      title: l10n.newPlanSheetTitle,
+      children: [
+        SheetLabel(l10n.newPlanNameLabel),
+        SheetTextField(
+          controller: _name,
+          hint: l10n.newPlanNameHint,
+          autofocus: true,
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _submit(),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.newPlanSheetTitle, style: typography.headingL),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                l10n.newPlanNameLabel.toUpperCase(),
-                style: typography.label.copyWith(color: colors.textMuted),
+        const SizedBox(height: AppSpacing.md),
+        SheetLabel(l10n.newPlanTypeLabel),
+        Row(
+          children: [
+            Expanded(
+              child: _TypeOption(
+                label: l10n.planTypeStrength,
+                accent: colors.accentStrength,
+                selected: _type == PlanType.strength,
+                onTap: () => setState(() => _type = PlanType.strength),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              TextField(
-                controller: _name,
-                autofocus: true,
-                textInputAction: TextInputAction.done,
-                textCapitalization: TextCapitalization.sentences,
-                style: typography.body,
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
-                decoration: InputDecoration(
-                  hintText: l10n.newPlanNameHint,
-                  hintStyle: typography.body.copyWith(color: colors.textMuted),
-                  filled: true,
-                  fillColor: colors.surfaceSunken,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.sm,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                    borderSide: BorderSide(color: colors.borderSubtle),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                    borderSide: BorderSide(color: colors.borderSubtle),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                    borderSide: BorderSide(color: colors.borderStrong),
-                  ),
-                ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: _TypeOption(
+                label: l10n.planTypeEndurance,
+                accent: colors.accentEndurance,
+                selected: _type == PlanType.endurance,
+                onTap: () => setState(() => _type = PlanType.endurance),
               ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                l10n.newPlanTypeLabel.toUpperCase(),
-                style: typography.label.copyWith(color: colors.textMuted),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Row(
-                children: [
-                  Expanded(
-                    child: _TypeOption(
-                      label: l10n.planTypeStrength,
-                      accent: colors.accentStrength,
-                      selected: _type == PlanType.strength,
-                      onTap: () => setState(() => _type = PlanType.strength),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: _TypeOption(
-                      label: l10n.planTypeEndurance,
-                      accent: colors.accentEndurance,
-                      selected: _type == PlanType.endurance,
-                      onTap: () => setState(() => _type = PlanType.endurance),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        l10n.newPlanCancel,
-                        style: typography.body.copyWith(
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _SubmitButton(
-                      label: l10n.newPlanSubmit,
-                      // A plan is found by its name and nothing else, so a
-                      // blank one cannot be created.
-                      onPressed: _name.text.trim().isEmpty ? null : _submit,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
+        const SizedBox(height: AppSpacing.lg),
+        SheetActions(
+          submitLabel: l10n.newPlanSubmit,
+          // A plan is found by its name and nothing else, so a blank one
+          // cannot be created.
+          onSubmit: _name.text.trim().isEmpty ? null : _submit,
+        ),
+      ],
     );
   }
 }
@@ -223,40 +148,6 @@ class _TypeOption extends StatelessWidget {
                 style: context.typography.label.copyWith(
                   color: selected ? accent : colors.textSecondary,
                 ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The sheet's primary action: filled, and the only filled button on it.
-class _SubmitButton extends StatelessWidget {
-  const _SubmitButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final enabled = onPressed != null;
-    return Material(
-      color: enabled ? colors.textPrimary : colors.surfaceSunken,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        child: SizedBox(
-          height: AppTouchTarget.primary,
-          child: Center(
-            child: Text(
-              label,
-              style: context.typography.body.copyWith(
-                fontWeight: FontWeight.w600,
-                color: enabled ? colors.onAccent : colors.textMuted,
               ),
             ),
           ),

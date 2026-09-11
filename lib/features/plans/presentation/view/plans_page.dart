@@ -1,4 +1,5 @@
 import 'package:coach_app/app/di/injector.dart';
+import 'package:coach_app/app/router/app_router.dart';
 import 'package:coach_app/app/theme/theme.dart';
 import 'package:coach_app/core/repositories/repositories.dart';
 import 'package:coach_app/features/plans/presentation/bloc/plan_list_bloc.dart';
@@ -6,6 +7,7 @@ import 'package:coach_app/features/plans/presentation/widgets/widgets.dart';
 import 'package:coach_app/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 /// The plan list (PRD §5.4, design screen 4a).
 ///
@@ -96,7 +98,12 @@ class _PlanListBody extends StatelessWidget {
                   for (final summary in state.summaries)
                     Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                      child: PlanCard(summary: summary),
+                      child: PlanCard(
+                        summary: summary,
+                        onWeekTemplate: () => context.push(
+                          AppRoutes.weekTemplate(summary.plan.id),
+                        ),
+                      ),
                     ),
                 NewPlanButton(onPressed: () => _createPlan(context)),
               ],
