@@ -84,6 +84,10 @@ class PlanningDao extends DatabaseAccessor<AppDatabase>
   Stream<List<SessionTemplateRow>> watchTemplates(String planId) =>
       watchLiveWhere(sessionTemplates, (t) => t.planId.equals(planId));
 
+  Future<List<SessionTemplateRow>> getTemplates(String planId) => (selectLive(
+    sessionTemplates,
+  )..where((t) => t.planId.equals(planId))).get();
+
   Future<void> saveTemplate(SessionTemplateRow row) =>
       upsertRow(sessionTemplates, row);
 
@@ -161,6 +165,38 @@ class PlanningDao extends DatabaseAccessor<AppDatabase>
         weeklySlots,
         (t) => t.blockId.equals(blockId) & t.weekday.equals(weekday),
       );
+
+  Future<List<WeeklySlotRow>> getSlots(String blockId) =>
+      (selectLive(weeklySlots)..where((t) => t.blockId.equals(blockId))).get();
+
+  /// Makes [rows] the entire weekly template of [blockId].
+  ///
+  /// Moving a session to another day, or swapping two, touches two weekdays
+  /// at once; committing the whole week keeps either change a single
+  /// transaction. The order inside it is what the partial unique index on
+  /// `(blockId, weekday)` demands: every live slot that is not staying
+  /// exactly as it is goes first, so no upsert below can land on a weekday
+  /// still occupied — a swap included.
+  Future<void> replaceSlots(String blockId, List<WeeklySlotRow> rows) =>
+      transaction(() async {
+        final unchanged = <String>{
+          for (final live in await getSlots(blockId))
+            for (final row in rows)
+              if (row.id == live.id &&
+                  row.weekday == live.weekday &&
+                  row.sessionTemplateId == live.sessionTemplateId)
+                row.id,
+        };
+        await softDeleteMissing(
+          weeklySlots,
+          (t) => t.blockId.equals(blockId),
+          unchanged,
+        );
+        await upsertRows(weeklySlots, [
+          for (final row in rows)
+            if (!unchanged.contains(row.id)) row,
+        ]);
+      });
 
   SimpleSelectStatement<$TrainingBlocksTable, TrainingBlockRow> _blocksOf(
     String planId,

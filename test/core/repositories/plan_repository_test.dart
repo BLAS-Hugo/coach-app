@@ -358,6 +358,129 @@ void main() {
 
       expect(await repository.watchSlots('b1').first, isEmpty);
     });
+
+    test('reads the slots of a block once, by weekday', () async {
+      await repository.setSlot(slot('s1', DateTime.friday, 't1'));
+      await repository.setSlot(slot('s2', DateTime.monday, 't2'));
+
+      expect((await repository.getSlots('b1')).map((s) => s.id), ['s2', 's1']);
+    });
+
+    group('replaceSlots', () {
+      test('makes the given slots the whole week', () async {
+        await repository.setSlot(slot('s1', DateTime.monday, 't1'));
+        await repository.setSlot(slot('s2', DateTime.wednesday, 't2'));
+
+        await repository.replaceSlots('b1', [
+          slot('s2', DateTime.wednesday, 't2'),
+          slot('s3', DateTime.friday, 't1'),
+        ]);
+
+        expect(await repository.getSlots('b1'), [
+          slot('s2', DateTime.wednesday, 't2'),
+          slot('s3', DateTime.friday, 't1'),
+        ]);
+      });
+
+      test('moves a session to another day', () async {
+        await repository.setSlot(slot('s1', DateTime.monday, 't1'));
+
+        await repository.replaceSlots('b1', [
+          slot('s1', DateTime.tuesday, 't1'),
+        ]);
+
+        expect(await repository.getSlots('b1'), [
+          slot('s1', DateTime.tuesday, 't1'),
+        ]);
+      });
+
+      test('swaps two sessions despite the one-per-weekday index', () async {
+        await repository.setSlot(slot('s1', DateTime.monday, 't1'));
+        await repository.setSlot(slot('s2', DateTime.tuesday, 't2'));
+
+        await repository.replaceSlots('b1', [
+          slot('s1', DateTime.tuesday, 't1'),
+          slot('s2', DateTime.monday, 't2'),
+        ]);
+
+        expect(await repository.getSlots('b1'), [
+          slot('s2', DateTime.monday, 't2'),
+          slot('s1', DateTime.tuesday, 't1'),
+        ]);
+      });
+
+      test('leaves an unchanged slot untouched', () async {
+        await repository.setSlot(slot('s1', DateTime.monday, 't1'));
+        final before = await db.select(db.weeklySlots).getSingle();
+
+        await repository.replaceSlots('b1', [
+          slot('s1', DateTime.monday, 't1'),
+          slot('s2', DateTime.friday, 't2'),
+        ]);
+
+        final after = await (db.select(
+          db.weeklySlots,
+        )..where((t) => t.id.equals('s1'))).getSingle();
+        expect(after, before);
+      });
+
+      test('an empty week clears every day', () async {
+        await repository.setSlot(slot('s1', DateTime.monday, 't1'));
+
+        await repository.replaceSlots('b1', const []);
+
+        expect(await repository.getSlots('b1'), isEmpty);
+        // Soft-deleted, never removed.
+        expect(await db.select(db.weeklySlots).get(), hasLength(1));
+      });
+
+      test('brings a retired slot back under its own id', () async {
+        await repository.setSlot(slot('s1', DateTime.monday, 't1'));
+        await repository.replaceSlots('b1', const []);
+
+        await repository.replaceSlots('b1', [
+          slot('s1', DateTime.monday, 't1'),
+        ]);
+
+        expect(await repository.getSlots('b1'), [
+          slot('s1', DateTime.monday, 't1'),
+        ]);
+        expect(await db.select(db.weeklySlots).get(), hasLength(1));
+      });
+
+      test('refuses two slots on one weekday', () async {
+        await expectLater(
+          repository.replaceSlots('b1', [
+            slot('s1', DateTime.monday, 't1'),
+            slot('s2', DateTime.monday, 't2'),
+          ]),
+          throwsArgumentError,
+        );
+      });
+
+      test('refuses a slot belonging to another block', () async {
+        await expectLater(
+          repository.replaceSlots('b1', [
+            slot('s1', DateTime.monday, 't1').copyWith(blockId: 'b2'),
+          ]),
+          throwsArgumentError,
+        );
+      });
+
+      test('leaves other blocks alone', () async {
+        await repository.stopBlock('b1', on: today.addDays(6));
+        await repository.saveBlock(
+          block('b2', startDate: today.addDays(7), orderIndex: 100),
+        );
+        await repository.setSlot(
+          slot('s9', DateTime.monday, 't1').copyWith(blockId: 'b2'),
+        );
+
+        await repository.replaceSlots('b1', const []);
+
+        expect(await repository.getSlots('b2'), hasLength(1));
+      });
+    });
   });
 
   group('cascading deletes', () {
@@ -680,6 +803,338 @@ void main() {
           ),
         ),
       );
+    });
+  });
+  group('week template', () {
+    setUp(() async {
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't1', planId: 'p1', name: 'Haut du corps'),
+      );
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't2', planId: 'p1', name: 'Bas du corps'),
+      );
+    });
+
+    Future<WeekTemplate?> weekOf(String planId, {String? blockId}) =>
+        repository.watchWeekTemplate(planId, blockId: blockId).first;
+
+    test('emits null for a plan that does not exist', () async {
+      expect(await weekOf('nope'), isNull);
+    });
+
+    test('emits null once the plan is deleted', () async {
+      await repository.deletePlan('p1');
+
+      expect(await weekOf('p1'), isNull);
+    });
+
+    test('carries the plan, today, and no block while it has none', () async {
+      final week = await weekOf('p1');
+
+      expect(week?.plan, strength);
+      expect(week?.today, today);
+      expect(week?.block, isNull);
+      expect(week?.blocks, isEmpty);
+      expect(week?.slots, isEmpty);
+    });
+
+    test('opens on the block running today', () async {
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
+      await repository.saveBlock(
+        block('b2', startDate: today.addDays(-7), orderIndex: 100),
+      );
+      await repository.saveBlock(
+        block('b3', startDate: today.addDays(28), orderIndex: 200),
+      );
+
+      final week = await weekOf('p1');
+
+      expect(week?.block?.id, 'b2');
+      expect(week?.blocks.map((b) => b.id), ['b1', 'b2', 'b3']);
+    });
+
+    test('else on the next block to start', () async {
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
+      await repository.saveBlock(
+        block('b2', startDate: today.addDays(14), orderIndex: 100),
+      );
+      await repository.saveBlock(
+        block('b3', startDate: today.addDays(70), orderIndex: 200),
+      );
+
+      expect((await weekOf('p1'))?.block?.id, 'b2');
+    });
+
+    test('else on the last block to have run', () async {
+      await repository.saveBlock(block('b1', startDate: today.addDays(-140)));
+      await repository.saveBlock(
+        block('b2', startDate: today.addDays(-70), orderIndex: 100),
+      );
+
+      expect((await weekOf('p1'))?.block?.id, 'b2');
+    });
+
+    test('opens on the block asked for', () async {
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
+      await repository.saveBlock(
+        block('b2', startDate: today, orderIndex: 100),
+      );
+
+      expect((await weekOf('p1', blockId: 'b1'))?.block?.id, 'b1');
+    });
+
+    test('has no block when the one asked for is gone', () async {
+      await repository.saveBlock(block('b1', startDate: today));
+
+      final week = await weekOf('p1', blockId: 'nope');
+
+      expect(week?.block, isNull);
+      expect(week?.blocks, hasLength(1));
+    });
+
+    test("reads the block's slots only", () async {
+      await repository.saveBlock(block('b1', startDate: today));
+      await repository.setSlot(
+        const WeeklySlot(
+          id: 's1',
+          blockId: 'b1',
+          weekday: DateTime.monday,
+          sessionTemplateId: 't1',
+        ),
+      );
+
+      expect((await weekOf('p1'))?.slots.map((s) => s.id), ['s1']);
+    });
+
+    test('lists every template of the plan by name, sized', () async {
+      await db
+          .into(db.exercises)
+          .insert(
+            ExercisesCompanion.insert(
+              id: 'x1',
+              createdAt: DateTime(2026, 9, 7),
+              updatedAt: DateTime(2026, 9, 7),
+              name: 'Squat',
+            ),
+          );
+      PlannedSet set(String id, String entryId) => PlannedSet(
+        id: id,
+        exerciseEntryId: entryId,
+        orderIndex: 0,
+        kind: SetKind.reps,
+        reps: 5,
+      );
+      await content.replaceStrengthContent(
+        templateId: 't1',
+        entries: const [
+          ExerciseEntry(
+            id: 'e1',
+            sessionTemplateId: 't1',
+            exerciseId: 'x1',
+            orderIndex: 0,
+          ),
+          ExerciseEntry(
+            id: 'e2',
+            sessionTemplateId: 't1',
+            exerciseId: 'x1',
+            orderIndex: 1,
+          ),
+        ],
+        setsByEntry: {
+          'e1': [set('ps1', 'e1'), set('ps2', 'e1')],
+          'e2': [set('ps3', 'e2')],
+        },
+      );
+      await content.replaceEnduranceContent(
+        templateId: 't2',
+        repeatGroups: const [],
+        blocks: const [
+          EnduranceBlock(
+            id: 'eb1',
+            sessionTemplateId: 't2',
+            orderIndex: 0,
+            role: EnduranceBlockRole.warmup,
+            measure: EnduranceMeasure.duration,
+            targetValue: 600,
+          ),
+          EnduranceBlock(
+            id: 'eb2',
+            sessionTemplateId: 't2',
+            orderIndex: 1,
+            role: EnduranceBlockRole.cooldown,
+            measure: EnduranceMeasure.duration,
+            targetValue: 300,
+          ),
+        ],
+      );
+
+      final templates = (await weekOf('p1'))!.templates;
+
+      // "Bas" files before "Haut".
+      expect(templates.map((t) => t.template.id), ['t2', 't1']);
+      expect(templates[1].exerciseCount, 2);
+      expect(templates[1].setCount, 3);
+      expect(templates[0].enduranceBlockCount, 2);
+      expect(templates[0].exerciseCount, 0);
+    });
+
+    test('re-emits when a slot changes', () async {
+      await repository.saveBlock(block('b1', startDate: today));
+      final emissions = repository.watchWeekTemplate('p1');
+
+      await repository.setSlot(
+        const WeeklySlot(
+          id: 's1',
+          blockId: 'b1',
+          weekday: DateTime.monday,
+          sessionTemplateId: 't1',
+        ),
+      );
+
+      await expectLater(
+        emissions,
+        emitsThrough(
+          predicate<WeekTemplate?>(
+            (week) => week?.slots.length == 1,
+            'the slot arrived',
+          ),
+        ),
+      );
+    });
+
+    test("re-emits when a template's content changes", () async {
+      final emissions = repository.watchWeekTemplate('p1');
+
+      await content.replaceEnduranceContent(
+        templateId: 't2',
+        repeatGroups: const [],
+        blocks: const [
+          EnduranceBlock(
+            id: 'eb1',
+            sessionTemplateId: 't2',
+            orderIndex: 0,
+            role: EnduranceBlockRole.work,
+            measure: EnduranceMeasure.distance,
+            targetValue: 400,
+          ),
+        ],
+      );
+
+      await expectLater(
+        emissions,
+        emitsThrough(
+          predicate<WeekTemplate?>(
+            (week) => week?.templateById('t2')?.enduranceBlockCount == 1,
+            'the count caught up',
+          ),
+        ),
+      );
+    });
+  });
+
+  group('duplicateBlock', () {
+    setUp(() async {
+      await repository.saveTemplate(
+        const SessionTemplate(id: 't1', planId: 'p1', name: 'Haut du corps'),
+      );
+      await repository.saveBlock(block('b1', startDate: today));
+      for (final weekday in [DateTime.monday, DateTime.thursday]) {
+        await repository.setSlot(
+          WeeklySlot(
+            id: 's$weekday',
+            blockId: 'b1',
+            weekday: weekday,
+            sessionTemplateId: 't1',
+          ),
+        );
+      }
+    });
+
+    test('starts the day after the source ends, for as long', () async {
+      final copy = await repository.duplicateBlock(
+        'b1',
+        newBlockId: 'b2',
+        name: 'Bloc 2',
+      );
+
+      expect(copy.id, 'b2');
+      expect(copy.name, 'Bloc 2');
+      expect(copy.planId, 'p1');
+      expect(copy.startDate, today.addDays(28));
+      expect(copy.durationWeeks, 4);
+      expect(copy.orderIndex, greaterThan(0));
+      expect(await repository.watchBlocks('p1').first, hasLength(2));
+    });
+
+    test('copies the weekly template under fresh ids', () async {
+      await repository.duplicateBlock('b1', newBlockId: 'b2', name: 'Bloc 2');
+
+      final copied = await repository.getSlots('b2');
+      expect(copied.map((s) => s.weekday), [
+        DateTime.monday,
+        DateTime.thursday,
+      ]);
+      expect(copied.every((s) => s.sessionTemplateId == 't1'), isTrue);
+      expect(copied.map((s) => s.id), isNot(contains('s1')));
+      // The source keeps its own.
+      expect(await repository.getSlots('b1'), hasLength(2));
+    });
+
+    test('a block stopped early is copied at its shortened length', () async {
+      await repository.stopBlock('b1', on: today.addDays(13));
+
+      final copy = await repository.duplicateBlock(
+        'b1',
+        newBlockId: 'b2',
+        name: 'Bloc 2',
+      );
+
+      expect(copy.startDate, today.addDays(14));
+      expect(copy.durationWeeks, 2);
+    });
+
+    test('a copy of a long-finished block starts today', () async {
+      await repository.saveBlock(block('b1', startDate: today.addDays(-70)));
+
+      final copy = await repository.duplicateBlock(
+        'b1',
+        newBlockId: 'b2',
+        name: 'Bloc 2',
+      );
+
+      expect(copy.startDate, today);
+    });
+
+    test('refuses an ongoing block', () async {
+      await repository.saveBlock(
+        block('b1', startDate: today, durationWeeks: null),
+      );
+
+      await expectLater(
+        repository.duplicateBlock('b1', newBlockId: 'b2', name: 'Bloc 2'),
+        throwsStateError,
+      );
+    });
+
+    test('refuses a block that does not exist', () async {
+      await expectLater(
+        repository.duplicateBlock('nope', newBlockId: 'b2', name: 'Bloc 2'),
+        throwsStateError,
+      );
+    });
+
+    test('refuses when a sibling already holds those dates', () async {
+      await repository.saveBlock(
+        block('b9', startDate: today.addDays(35), orderIndex: 100),
+      );
+
+      await expectLater(
+        repository.duplicateBlock('b1', newBlockId: 'b2', name: 'Bloc 2'),
+        throwsA(isA<BlockOverlapException>()),
+      );
+      // Nothing half-written: neither the block nor its slots.
+      expect(await repository.watchBlocks('p1').first, hasLength(2));
+      expect(await repository.getSlots('b2'), isEmpty);
     });
   });
 }
